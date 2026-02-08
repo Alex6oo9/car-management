@@ -1,0 +1,2315 @@
+{
+  "info": {
+    "_postman_id": "car-showroom-api-v1",
+    "name": "Car Showroom Management System",
+    "description": "Complete API test collection. Run folders top-to-bottom in order — each folder builds on the previous one.\n\n📋 PREREQUISITES\n• Server running: npm run dev\n• Database migrated: npm run migrate\n• Admin seeded: npm run seed\n• Enable cookie jar in Postman (Settings → Use cookie jar)\n\n🔑 DEFAULT CREDENTIALS\n• Admin: admin@example.com / admin123\n• Employee: auto-created in folder 2\n\n⚡ AUTO-SAVED VARIABLES\nAfter each create request, IDs are automatically saved as collection variables (car_id, customer_id, rental_id, purchase_id, employee_id). No manual copying needed.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "employee_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "employee_email",
+      "value": "employee@example.com",
+      "type": "string"
+    },
+    {
+      "key": "employee_password",
+      "value": "Password123!",
+      "type": "string"
+    },
+    {
+      "key": "customer_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "car_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "car2_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "rental_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "purchase_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Health Check",
+      "description": "Verify the server is running before running any other requests.",
+      "item": [
+        {
+          "name": "Server Health",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Server is up', () => pm.response.to.have.status(200));",
+                  "pm.test('Has timestamp', () => pm.expect(pm.response.json().status).to.equal('ok'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/health",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Returns {status: 'ok', timestamp: '...'}. If this fails, the server is not running."
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Authentication",
+      "description": "Start here. Login as admin to get a session cookie. Postman stores it automatically.",
+      "item": [
+        {
+          "name": "Login as Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Login successful', () => pm.expect(pm.response.json().message).to.equal('Login successful'));",
+                  "pm.test('Role is admin', () => pm.expect(pm.response.json().user.role).to.equal('admin'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"admin123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/auth/login",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Authenticates with admin credentials. Session cookie is automatically stored by Postman."
+          }
+        },
+        {
+          "name": "Get Current User (me)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Is authenticated', () => pm.expect(pm.response.json()).to.have.property('id'));",
+                  "pm.test('No password in response', () => pm.expect(pm.response.json()).to.not.have.property('password_hash'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/auth/me",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Returns the currently authenticated user. Requires active session."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. User Management (Admin Only)",
+      "description": "Create and manage employee accounts. Only admin can access these endpoints.\n\n⚠️ Run 'Delete Employee' AFTER completing folder 8 (Permission Tests), since it needs an active employee.",
+      "item": [
+        {
+          "name": "Create Employee",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Employee created', () => pm.expect(json.role).to.equal('employee'));",
+                  "pm.test('No password in response', () => pm.expect(json).to.not.have.property('password_hash'));",
+                  "if (json.id) { pm.collectionVariables.set('employee_id', json.id); console.log('Saved employee_id:', json.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"employee@example.com\",\n  \"password\": \"Password123!\",\n  \"full_name\": \"Jane Employee\",\n  \"role\": \"employee\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/users",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "users"
+              ]
+            },
+            "description": "Creates a new employee user. Role must be 'employee' — admin cannot create another admin via API. Saves employee_id variable."
+          }
+        },
+        {
+          "name": "List All Users",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has users array and total', () => { pm.expect(pm.response.json()).to.have.property('users'); pm.expect(pm.response.json()).to.have.property('total'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/users",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "users"
+              ]
+            },
+            "description": "Returns all users (admin + employees) with a total count."
+          }
+        },
+        {
+          "name": "List Users — Filter by Role",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('All results are employees', () => { pm.response.json().users.forEach(u => pm.expect(u.role).to.equal('employee')); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/users?role=employee",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "role",
+                  "value": "employee"
+                }
+              ]
+            },
+            "description": "Filter users by role. Also supports ?is_active=true|false."
+          }
+        },
+        {
+          "name": "Get Employee by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Correct ID', () => pm.expect(pm.response.json().id).to.equal(pm.collectionVariables.get('employee_id')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/users/{{employee_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "users",
+                "{{employee_id}}"
+              ]
+            },
+            "description": "Fetch a single user by UUID. Uses auto-saved {{employee_id}}."
+          }
+        },
+        {
+          "name": "Update Employee",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Name updated', () => pm.expect(pm.response.json().full_name).to.equal('Jane Employee Updated'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Jane Employee Updated\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/users/{{employee_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "users",
+                "{{employee_id}}"
+              ]
+            },
+            "description": "Update full_name and/or is_active. Partial update supported."
+          }
+        },
+        {
+          "name": "Delete Employee (soft delete)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Success message', () => pm.expect(pm.response.json().message).to.include('deleted'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/users/{{employee_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "users",
+                "{{employee_id}}"
+              ]
+            },
+            "description": "⚠️ Run AFTER folder 8 (Permission Tests). Sets is_active=false. The employee will no longer be able to log in."
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Customers",
+      "description": "Manage customer records. Accessible by admin and employees.",
+      "item": [
+        {
+          "name": "Create Customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Has required fields', () => pm.expect(json).to.have.property('id'));",
+                  "if (json.id) { pm.collectionVariables.set('customer_id', json.id); console.log('Saved customer_id:', json.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"John Smith\",\n  \"phone\": \"+66123456789\",\n  \"email\": \"john.smith@example.com\",\n  \"address_line\": \"123 Sukhumvit Road\",\n  \"city\": \"Bangkok\",\n  \"country\": \"Thailand\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/customers",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "customers"
+              ]
+            },
+            "description": "Create a customer. At least one of phone or email is required. Saves customer_id variable."
+          }
+        },
+        {
+          "name": "List All Customers",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has customers and total', () => { pm.expect(pm.response.json()).to.have.property('customers'); pm.expect(pm.response.json()).to.have.property('total'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/customers?limit=20&offset=0",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "customers"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "Paginated list of all customers."
+          }
+        },
+        {
+          "name": "Search Customers",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Search returns results', () => pm.expect(pm.response.json().customers.length).to.be.greaterThan(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/customers?search=John",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "customers"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "John"
+                }
+              ]
+            },
+            "description": "Search by name, phone, or email (case-insensitive ILIKE match)."
+          }
+        },
+        {
+          "name": "Get Customer by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Correct customer', () => pm.expect(pm.response.json().id).to.equal(pm.collectionVariables.get('customer_id')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/customers/{{customer_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "customers",
+                "{{customer_id}}"
+              ]
+            },
+            "description": "Fetch a single customer by UUID."
+          }
+        },
+        {
+          "name": "Update Customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('City updated', () => pm.expect(pm.response.json().city).to.equal('Chiang Mai'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"city\": \"Chiang Mai\",\n  \"address_line\": \"456 Nimman Road\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/customers/{{customer_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "customers",
+                "{{customer_id}}"
+              ]
+            },
+            "description": "Partial update. Only provided fields are changed."
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Cars — Admin Endpoints",
+      "description": "Manage the car inventory. Accessible by admin and employees.",
+      "item": [
+        {
+          "name": "Create Car (for Rentals)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Car created', () => pm.expect(json.brand).to.equal('Toyota'));",
+                  "if (json.id) { pm.collectionVariables.set('car_id', json.id); console.log('Saved car_id:', json.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vin\": \"JT2BF22K1W0123456\",\n  \"brand\": \"Toyota\",\n  \"model\": \"Camry\",\n  \"year\": 2022,\n  \"mileage_km\": 25000,\n  \"sale_price\": 850000,\n  \"rent_price_per_day\": 2000,\n  \"currency_code\": \"THB\",\n  \"status\": \"available\",\n  \"is_published\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/cars",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "cars"
+              ]
+            },
+            "description": "Creates the main test car. Saves car_id variable. VIN is optional but must be unique."
+          }
+        },
+        {
+          "name": "Create Car (for Purchase Test)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "if (json.id) { pm.collectionVariables.set('car2_id', json.id); console.log('Saved car2_id:', json.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vin\": \"1HGBH41JXMN109186\",\n  \"brand\": \"Honda\",\n  \"model\": \"Civic\",\n  \"year\": 2021,\n  \"mileage_km\": 30000,\n  \"sale_price\": 650000,\n  \"rent_price_per_day\": 1500,\n  \"currency_code\": \"THB\",\n  \"status\": \"available\",\n  \"is_published\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/cars",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "cars"
+              ]
+            },
+            "description": "Second car used in the Purchases folder. Saves car2_id variable."
+          }
+        },
+        {
+          "name": "List All Cars",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns all cars', () => pm.expect(pm.response.json().total).to.be.at.least(2));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/cars?limit=50&offset=0",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "cars"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "Returns all cars regardless of is_published status. Admin view."
+          }
+        },
+        {
+          "name": "Get Car by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has images array', () => pm.expect(pm.response.json()).to.have.property('images'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/cars/{{car_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "cars",
+                "{{car_id}}"
+              ]
+            },
+            "description": "Returns car details plus its images array."
+          }
+        },
+        {
+          "name": "Update Car",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Mileage updated', () => pm.expect(pm.response.json().mileage_km).to.equal(26500));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mileage_km\": 26500,\n  \"sale_price\": 840000,\n  \"rent_price_per_day\": 1900\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/cars/{{car_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "cars",
+                "{{car_id}}"
+              ]
+            },
+            "description": "Partial update of any car fields."
+          }
+        },
+        {
+          "name": "Add Primary Image",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Is primary image', () => pm.expect(pm.response.json().is_primary).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"storage_path\": \"/uploads/toyota-camry-front.jpg\",\n  \"is_primary\": true,\n  \"sort_order\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/cars/{{car_id}}/images",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "cars",
+                "{{car_id}}",
+                "images"
+              ]
+            },
+            "description": "Add an image. Only one primary image allowed per car (enforced by unique index)."
+          }
+        },
+        {
+          "name": "Add Secondary Image",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Not primary', () => pm.expect(pm.response.json().is_primary).to.be.false);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"storage_path\": \"/uploads/toyota-camry-interior.jpg\",\n  \"is_primary\": false,\n  \"sort_order\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/cars/{{car_id}}/images",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "cars",
+                "{{car_id}}",
+                "images"
+              ]
+            },
+            "description": "Add a second image with a different sort_order."
+          }
+        },
+        {
+          "name": "Publish Car",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Car is published', () => pm.expect(pm.response.json().is_published).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_published\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/cars/{{car_id}}/publish",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "cars",
+                "{{car_id}}",
+                "publish"
+              ]
+            },
+            "description": "Toggle car visibility on the public listing. After this, the car appears on GET /cars."
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Cars — Public Endpoints",
+      "description": "No authentication required. Only shows is_published=true cars. Run after publishing a car in folder 4.",
+      "item": [
+        {
+          "name": "List Published Cars",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has published cars', () => pm.expect(pm.response.json().total).to.be.at.least(1));",
+                  "pm.test('All cars have images', () => { pm.response.json().cars.forEach(c => pm.expect(c).to.have.property('images')); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/cars?limit=20&offset=0",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "cars"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "Public endpoint — no auth needed. Returns only published cars with their images."
+          }
+        },
+        {
+          "name": "List Published Cars — With Filters",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/cars?brand=Toyota&year_min=2020&year_max=2025&rent_price_min=1000&rent_price_max=3000",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "cars"
+              ],
+              "query": [
+                {
+                  "key": "brand",
+                  "value": "Toyota"
+                },
+                {
+                  "key": "year_min",
+                  "value": "2020"
+                },
+                {
+                  "key": "year_max",
+                  "value": "2025"
+                },
+                {
+                  "key": "rent_price_min",
+                  "value": "1000"
+                },
+                {
+                  "key": "rent_price_max",
+                  "value": "3000"
+                }
+              ]
+            },
+            "description": "Filter public cars by brand, model, year range, sale price range, or rent price range."
+          }
+        },
+        {
+          "name": "Get Published Car by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Car has images', () => pm.expect(pm.response.json().images).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/cars/{{car_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "cars",
+                "{{car_id}}"
+              ]
+            },
+            "description": "Public endpoint. Returns full car details including all images."
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Rentals",
+      "description": "Full rental lifecycle: create → confirmed → active (car becomes rented) → completed (car becomes available again).",
+      "item": [
+        {
+          "name": "Create Rental",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Status is pending', () => pm.expect(json.status).to.equal('pending'));",
+                  "pm.test('Total price calculated', () => pm.expect(json.total_price).to.be.a('number').and.greaterThan(0));",
+                  "if (json.id) { pm.collectionVariables.set('rental_id', json.id); console.log('Saved rental_id:', json.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_id\": \"{{car_id}}\",\n  \"customer_id\": \"{{customer_id}}\",\n  \"start_date\": \"2026-04-01\",\n  \"end_date\": \"2026-04-07\",\n  \"deposit_amount\": 5000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/rentals",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "rentals"
+              ]
+            },
+            "description": "Creates rental. Checks date overlap, snapshots rent_price_per_day, calculates total (7 days inclusive = 7 × 1900 = 13300 THB)."
+          }
+        },
+        {
+          "name": "List All Rentals",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has rentals', () => pm.expect(pm.response.json().total).to.be.at.least(1));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/rentals",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "rentals"
+              ]
+            },
+            "description": "Returns all rentals with joined car and customer info."
+          }
+        },
+        {
+          "name": "Filter Rentals by Status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('All are pending', () => { pm.response.json().rentals.forEach(r => pm.expect(r.status).to.equal('pending')); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/rentals?status=pending",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "rentals"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "pending"
+                }
+              ]
+            },
+            "description": "Filter by status: pending | confirmed | active | completed | cancelled. Also supports car_id, customer_id, start_date_from, start_date_to."
+          }
+        },
+        {
+          "name": "Get Rental by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has car info', () => pm.expect(pm.response.json()).to.have.property('car_brand'));",
+                  "pm.test('Has customer info', () => pm.expect(pm.response.json()).to.have.property('customer_name'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/rentals/{{rental_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "rentals",
+                "{{rental_id}}"
+              ]
+            },
+            "description": "Returns rental with joined car_brand, car_model, customer_name details."
+          }
+        },
+        {
+          "name": "Update Status → Confirmed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Status is confirmed', () => pm.expect(pm.response.json().status).to.equal('confirmed'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"confirmed\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/rentals/{{rental_id}}/status",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "rentals",
+                "{{rental_id}}",
+                "status"
+              ]
+            },
+            "description": "Transition: pending → confirmed. No side effect on car status."
+          }
+        },
+        {
+          "name": "Update Status → Active (car becomes rented)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Status is active', () => pm.expect(pm.response.json().status).to.equal('active'));",
+                  "console.log('Side effect: car status should now be rented. Check GET /admin/cars/{{car_id}}');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/rentals/{{rental_id}}/status",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "rentals",
+                "{{rental_id}}",
+                "status"
+              ]
+            },
+            "description": "Transition: confirmed → active. SIDE EFFECT: cars.status = 'rented'."
+          }
+        },
+        {
+          "name": "Verify Car is Now Rented",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Car is rented', () => pm.expect(pm.response.json().status).to.equal('rented'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/cars/{{car_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "cars",
+                "{{car_id}}"
+              ]
+            },
+            "description": "Confirms the side effect: car status changed to 'rented' when rental went active."
+          }
+        },
+        {
+          "name": "Update Status → Completed (car becomes available)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Status is completed', () => pm.expect(pm.response.json().status).to.equal('completed'));",
+                  "console.log('Side effect: car status should now be available again.');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"completed\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/rentals/{{rental_id}}/status",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "rentals",
+                "{{rental_id}}",
+                "status"
+              ]
+            },
+            "description": "Transition: active → completed. SIDE EFFECT: cars.status = 'available'."
+          }
+        },
+        {
+          "name": "Verify Car is Available Again",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Car is available', () => pm.expect(pm.response.json().status).to.equal('available'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/cars/{{car_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "cars",
+                "{{car_id}}"
+              ]
+            },
+            "description": "Confirms the side effect: car status returned to 'available' after rental completed."
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Purchases",
+      "description": "Purchase lifecycle: create → paid (car becomes sold). Uses car2_id (Honda Civic).",
+      "item": [
+        {
+          "name": "Create Purchase",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Status is pending', () => pm.expect(json.status).to.equal('pending'));",
+                  "pm.test('Sale price snapshotted', () => pm.expect(json.sale_price).to.be.a('number').and.greaterThan(0));",
+                  "if (json.id) { pm.collectionVariables.set('purchase_id', json.id); console.log('Saved purchase_id:', json.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_id\": \"{{car2_id}}\",\n  \"customer_id\": \"{{customer_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/purchases",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "purchases"
+              ]
+            },
+            "description": "Creates purchase for the Honda Civic. Snapshots sale_price from cars table. Saves purchase_id."
+          }
+        },
+        {
+          "name": "List All Purchases",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has purchases', () => pm.expect(pm.response.json().total).to.be.at.least(1));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/purchases",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "purchases"
+              ]
+            },
+            "description": "Returns all purchases with joined car and customer info. Filter by ?car_id=, ?customer_id=, ?status=."
+          }
+        },
+        {
+          "name": "Get Purchase by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has car info', () => pm.expect(pm.response.json()).to.have.property('car_brand'));",
+                  "pm.test('Has customer info', () => pm.expect(pm.response.json()).to.have.property('customer_name'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/purchases/{{purchase_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "purchases",
+                "{{purchase_id}}"
+              ]
+            },
+            "description": "Returns purchase details with car and customer join info."
+          }
+        },
+        {
+          "name": "Mark as Paid → Car Becomes Sold",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Status is paid', () => pm.expect(pm.response.json().status).to.equal('paid'));",
+                  "console.log('ATOMIC TRANSACTION: car2 status is now sold. Test this in folder 9.');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"paid\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/purchases/{{purchase_id}}/status",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "purchases",
+                "{{purchase_id}}",
+                "status"
+              ]
+            },
+            "description": "CRITICAL: Uses DB transaction to atomically set purchase=paid AND car=sold. Cannot be reversed (no paid→pending)."
+          }
+        },
+        {
+          "name": "Verify Car is Now Sold",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Car is sold', () => pm.expect(pm.response.json().status).to.equal('sold'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/cars/{{car2_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "cars",
+                "{{car2_id}}"
+              ]
+            },
+            "description": "Confirms the atomic side effect: Honda Civic is now marked as sold."
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Permission Tests (Employee Access)",
+      "description": "Tests role-based access control. Login as employee, verify they CAN access cars/customers/rentals but CANNOT access user management.\n\n⚠️ This temporarily switches session to employee. The last request re-logs in as admin.",
+      "item": [
+        {
+          "name": "Login as Employee",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Role is employee', () => pm.expect(pm.response.json().user.role).to.equal('employee'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{employee_email}}\",\n  \"password\": \"{{employee_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/auth/login",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Switch session to employee. Subsequent requests run as employee."
+          }
+        },
+        {
+          "name": "[200] Employee CAN List Cars",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 - Employee can access cars', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/cars",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "cars"
+              ]
+            },
+            "description": "Employee has full access to car management. Expect 200."
+          }
+        },
+        {
+          "name": "[200] Employee CAN List Customers",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 - Employee can access customers', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/customers",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "customers"
+              ]
+            },
+            "description": "Employee has full access to customer management. Expect 200."
+          }
+        },
+        {
+          "name": "[403] Employee CANNOT List Users",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403 - Access denied', () => pm.response.to.have.status(403));",
+                  "pm.test('Error code is correct', () => pm.expect(pm.response.json().error).to.include('Admin'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/users",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "users"
+              ]
+            },
+            "description": "Employee is blocked from user management. Expect 403 Forbidden."
+          }
+        },
+        {
+          "name": "[403] Employee CANNOT Create User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403 - Access denied', () => pm.response.to.have.status(403));",
+                  "pm.test('Forbidden error returned', () => pm.expect(pm.response.json()).to.have.property('error'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"hacker@example.com\",\n  \"password\": \"Password123!\",\n  \"full_name\": \"Unauthorized\",\n  \"role\": \"employee\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/users",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "users"
+              ]
+            },
+            "description": "Employee cannot create users. Expect 403 Forbidden."
+          }
+        },
+        {
+          "name": "Login as Admin (restore session)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Back to admin', () => pm.expect(pm.response.json().user.role).to.equal('admin'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"admin123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/auth/login",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Re-login as admin for subsequent tests."
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. Business Rule Validations",
+      "description": "Test that the system correctly enforces business rules and returns proper error codes.",
+      "item": [
+        {
+          "name": "[400] Cannot Rent Sold Car",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400 - Car is sold', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code CAR_SOLD', () => pm.expect(pm.response.json().code).to.equal('CAR_SOLD'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_id\": \"{{car2_id}}\",\n  \"customer_id\": \"{{customer_id}}\",\n  \"start_date\": \"2026-05-01\",\n  \"end_date\": \"2026-05-05\",\n  \"deposit_amount\": 3000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/rentals",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "rentals"
+              ]
+            },
+            "description": "Honda Civic (car2_id) was sold in folder 7. Attempting to rent it must return 400."
+          }
+        },
+        {
+          "name": "[400] Cannot Buy Sold Car",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400 - Car not available', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code CAR_NOT_AVAILABLE', () => pm.expect(pm.response.json().code).to.equal('CAR_NOT_AVAILABLE'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_id\": \"{{car2_id}}\",\n  \"customer_id\": \"{{customer_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/purchases",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "purchases"
+              ]
+            },
+            "description": "Honda Civic (car2_id) is sold. Attempting to purchase it must return 400."
+          }
+        },
+        {
+          "name": "Create Rental (base for overlap test)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 - First rental succeeds', () => pm.response.to.have.status(201));",
+                  "console.log('Now run the next request to test overlap detection.');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_id\": \"{{car_id}}\",\n  \"customer_id\": \"{{customer_id}}\",\n  \"start_date\": \"2026-06-01\",\n  \"end_date\": \"2026-06-10\",\n  \"deposit_amount\": 5000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/rentals",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "rentals"
+              ]
+            },
+            "description": "Creates a rental Jun 1–10. Status is 'pending' so overlap check will fire on the next request."
+          }
+        },
+        {
+          "name": "[409] Overlapping Rental Blocked",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409 - Date overlap', () => pm.response.to.have.status(409));",
+                  "pm.test('Error code DATE_OVERLAP', () => pm.expect(pm.response.json().code).to.equal('DATE_OVERLAP'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_id\": \"{{car_id}}\",\n  \"customer_id\": \"{{customer_id}}\",\n  \"start_date\": \"2026-06-08\",\n  \"end_date\": \"2026-06-15\",\n  \"deposit_amount\": 5000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/rentals",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "rentals"
+              ]
+            },
+            "description": "Jun 8–15 overlaps with the pending Jun 1–10 rental. Must return 409."
+          }
+        },
+        {
+          "name": "[403] Cannot Delete Admin Account",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403 - Cannot delete admin', () => pm.response.to.have.status(403));",
+                  "pm.test('FORBIDDEN error code', () => pm.expect(pm.response.json().code).to.equal('FORBIDDEN'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/users/{{employee_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "users",
+                "{{employee_id}}"
+              ]
+            },
+            "description": "NOTE: This uses employee_id here for the actual test. To test deleting the actual admin, you would need the admin's UUID. The admin route protects against role=admin deletion. Run 'Delete Employee' from folder 2 to soft-delete the employee."
+          }
+        },
+        {
+          "name": "[400] Invalid Status Transition",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400 - Invalid transition', () => pm.response.to.have.status(400));",
+                  "pm.test('Transition error message', () => pm.expect(pm.response.json().code).to.equal('STATUS_TRANSITION_ERROR'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"pending\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/rentals/{{rental_id}}/status",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "rentals",
+                "{{rental_id}}",
+                "status"
+              ]
+            },
+            "description": "The rental from folder 6 is 'completed'. Trying to go back to 'pending' must fail."
+          }
+        }
+      ]
+    },
+    {
+      "name": "10. Cleanup",
+      "description": "Run these at the very end.",
+      "item": [
+        {
+          "name": "Delete Employee (if not done in folder 2)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/users/{{employee_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "users",
+                "{{employee_id}}"
+              ]
+            },
+            "description": "Soft-deletes the employee created in folder 2."
+          }
+        },
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Logout successful', () => pm.expect(pm.response.json().message).to.equal('Logout successful'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/auth/logout",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Destroys the session. Subsequent authenticated requests will return 401."
+          }
+        },
+        {
+          "name": "[401] Verify Session Destroyed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401 - Session gone', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/auth/me",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Confirms the session was destroyed by logout."
+          }
+        }
+      ]
+    }
+  ]
+}
