@@ -7,6 +7,9 @@ const envSchema = z.object({
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
   PORT: z.coerce.number().default(5000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  APP_URL: z.string().url().default('http://localhost:3000'),
+  FROM_EMAIL: z.string().min(1).default('CarShow <onboarding@resend.dev>'),
+  RESEND_API_KEY: z.string().min(1).optional(),
 });
 
 function loadEnv() {
