@@ -2,7 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcrypt';
 import { isAuthenticated, isAdmin } from '../auth/middleware.js';
 import { validate, validateParams } from '../middleware/validate.js';
-import { createUserSchema, updateUserSchema, uuidParamSchema } from '../validation/schemas.js';
+import { createUserSchema, updateUserSchema, updateUserRoleSchema, uuidParamSchema } from '../validation/schemas.js';
 import { usersRepo } from '../db/repositories/users.repo.js';
 import { getParam } from '../utils/params.js';
 import type { Request, Response } from 'express';
@@ -70,6 +70,40 @@ router.patch('/:id', validateParams(uuidParamSchema), validate(updateUserSchema)
     res.json(user);
   } catch (err) {
     console.error('Error updating user:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.patch('/:id/role', validateParams(uuidParamSchema), validate(updateUserRoleSchema), async (req: Request, res: Response): Promise<void> => {
+  try {
+    const id = getParam(req, 'id');
+    const { role } = req.body as { role: 'employee' };
+
+    const user = await usersRepo.findById(id);
+    if (!user) {
+      res.status(404).json({ error: 'User not found', code: 'NOT_FOUND' });
+      return;
+    }
+
+    if (user.role === 'admin') {
+      res.status(403).json({ error: 'Cannot change admin role', code: 'FORBIDDEN' });
+      return;
+    }
+
+    if (user.role !== 'client') {
+      res.status(400).json({ error: 'Only client users can be promoted', code: 'INVALID_ROLE_CHANGE' });
+      return;
+    }
+
+    const updated = await usersRepo.updateRole(id, role);
+    if (!updated) {
+      res.status(404).json({ error: 'User not found', code: 'NOT_FOUND' });
+      return;
+    }
+
+    res.json(updated);
+  } catch (err) {
+    console.error('Error updating user role:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

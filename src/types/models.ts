@@ -3,8 +3,9 @@ export interface User {
   email: string;
   password_hash: string;
   full_name: string;
-  role: 'admin' | 'employee';
+  role: 'admin' | 'employee' | 'client';
   is_active: boolean;
+  is_email_verified: boolean;
   created_at: Date;
   updated_at: Date;
 }

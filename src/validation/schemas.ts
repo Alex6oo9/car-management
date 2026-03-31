@@ -14,12 +14,37 @@ export const updateUserSchema = z.object({
   is_active: z.boolean().optional(),
 });
 
+export const updateUserRoleSchema = z.object({
+  role: z.enum(['employee']),
+});
+
 // ── Auth Schemas ──
 
 export const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
 });
+
+export const registerSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+  full_name: z.string().min(1),
+});
+
+export const resendVerificationSchema = z.object({
+  email: z.string().email(),
+});
+
+//ForgetPassword Schemas
+export const forgotPasswordSchema = z.object({
+  email: z.string().email(),
+});
+
+//resetPassword Schemas
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1),
+  new_password: z.string().min(8),
+}); 
 
 // ── Customer Schemas ──
 

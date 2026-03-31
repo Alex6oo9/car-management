@@ -25,6 +25,7 @@ passport.use(
           full_name: user.full_name,
           role: user.role,
           is_active: user.is_active,
+          is_email_verified: user.is_email_verified,
         });
       } catch (err) {
         return done(err);
@@ -49,6 +50,7 @@ passport.deserializeUser(async (id: string, done) => {
       full_name: user.full_name,
       role: user.role,
       is_active: user.is_active,
+      is_email_verified: user.is_email_verified,
     });
   } catch (err) {
     done(err);

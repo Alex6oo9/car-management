@@ -77,6 +77,17 @@ export const usersRepo = {
     return result.rows[0] || null;
   },
 
+  async updateRole(id: string, role: 'employee'): Promise<Omit<User, 'password_hash'> | null> {
+    const result = await pool.query(
+      `UPDATE users
+       SET role = $1, updated_at = now()
+       WHERE id = $2
+       RETURNING id, email, full_name, role, is_active, created_at, updated_at`,
+      [role, id]
+    );
+    return result.rows[0] || null;
+  },
+
   async delete(id: string): Promise<boolean> {
     const result = await pool.query(
       `UPDATE users SET is_active = false, updated_at = now() WHERE id = $1`,
