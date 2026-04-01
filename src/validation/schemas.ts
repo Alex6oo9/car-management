@@ -68,6 +68,11 @@ export const updateCustomerSchema = z.object({
   country: z.string().optional(),
 });
 
+//Delete User Schemas
+export const hardDeleteUserSchema = z.object({
+  confirm: z.literal('DELETE'),
+});
+
 // ── Car Schemas ──
 
 export const createCarSchema = z.object({

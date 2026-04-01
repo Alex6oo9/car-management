@@ -2,7 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcrypt';
 import { isAuthenticated, isAdmin } from '../auth/middleware.js';
 import { validate, validateParams } from '../middleware/validate.js';
-import { createUserSchema, updateUserSchema, updateUserRoleSchema, uuidParamSchema } from '../validation/schemas.js';
+import { createUserSchema, updateUserSchema, updateUserRoleSchema, hardDeleteUserSchema, uuidParamSchema } from '../validation/schemas.js';
 import { usersRepo } from '../db/repositories/users.repo.js';
 import { getParam } from '../utils/params.js';
 import type { Request, Response } from 'express';
@@ -104,6 +104,40 @@ router.patch('/:id/role', validateParams(uuidParamSchema), validate(updateUserRo
     res.json(updated);
   } catch (err) {
     console.error('Error updating user role:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.delete('/:id/hard', validateParams(uuidParamSchema), validate(hardDeleteUserSchema), async (req: Request, res: Response): Promise<void> => {
+  try {
+    const id = getParam(req, 'id');
+    const actor = req.user!;
+
+    const user = await usersRepo.findById(id);
+    if (!user) {
+      res.status(404).json({ error: 'User not found', code: 'NOT_FOUND' });
+      return;
+    }
+
+    if (user.role === 'admin') {
+      res.status(403).json({ error: 'Cannot delete admin account', code: 'FORBIDDEN' });
+      return;
+    }
+
+    if (actor.id === user.id) {
+      res.status(403).json({ error: 'Cannot hard delete your own account', code: 'FORBIDDEN' });
+      return;
+    }
+
+    const deleted = await usersRepo.hardDelete(id);
+    if (!deleted) {
+      res.status(404).json({ error: 'User not found', code: 'NOT_FOUND' });
+      return;
+    }
+
+    res.json({ message: 'User hard deleted successfully' });
+  } catch (err) {
+    console.error('Error hard deleting user:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

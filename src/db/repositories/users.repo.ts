@@ -95,4 +95,17 @@ export const usersRepo = {
     );
     return (result.rowCount ?? 0) > 0;
   },
+
+  async hardDelete(id: string): Promise<boolean> {
+    // Remove active sessions first
+    await pool.query(
+      `DELETE FROM "session"
+       WHERE sess->'passport'->>'user' = $1`,
+      [id]
+    );
+
+    const result = await pool.query('DELETE FROM users WHERE id = $1', [id]);
+    return (result.rowCount ?? 0) > 0;
+  },
+  
 };

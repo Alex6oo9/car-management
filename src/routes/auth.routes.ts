@@ -238,6 +238,11 @@ router.post('/reset-password', validate(resetPasswordSchema), async (req: Reques
        WHERE id = $1`,
       [row.id]
     );
+    await pool.query(
+      `DELETE FROM "session"
+       WHERE sess->'passport'->>'user' = $1`,
+      [row.user_id]
+    );
 
     res.json({ message: 'Password reset successfully. You can now log in.' });
   } catch (err) {
