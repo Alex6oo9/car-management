@@ -87,6 +87,41 @@ export const usersRepo = {
     );
     return result.rows[0] || null;
   },
+  async findByGoogleId(googleId: string): Promise<User | null> {
+    const result = await pool.query(
+      'SELECT * FROM users WHERE google_id = $1',
+      [googleId]
+    );
+    return result.rows[0] || null;
+  },
+  async linkGoogleAccount(userId: string, googleId: string): Promise<User | null> {
+    const result = await pool.query(
+      `UPDATE users
+       SET google_id = $1,
+           auth_provider = 'google',
+           is_email_verified = TRUE,
+           updated_at = now()
+       WHERE id = $2
+       RETURNING *`,
+      [googleId, userId]
+    );
+    return result.rows[0] || null;
+  },
+  async createGoogleUser(data: {
+    email: string;
+    full_name: string;
+    google_id: string;
+  }): Promise<User> {
+    const result = await pool.query(
+      `INSERT INTO users (
+         email, password_hash, full_name, role, is_active, is_email_verified, auth_provider, google_id
+       )
+       VALUES ($1, NULL, $2, 'client', TRUE, TRUE, 'google', $3)
+       RETURNING *`,
+      [data.email, data.full_name, data.google_id]
+    );
+    return result.rows[0] as User;
+  },
 
   async delete(id: string): Promise<boolean> {
     const result = await pool.query(

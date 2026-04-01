@@ -15,6 +15,9 @@ passport.use(
         if (!user.is_active) {
           return done(null, false, { message: 'Account is deactivated' });
         }
+        if (!user.password_hash) {
+          return done(null, false, { message: 'Invalid credentials' });
+        }
         const isValid = await bcrypt.compare(password, user.password_hash);
         if (!isValid) {
           return done(null, false, { message: 'Invalid credentials' });
@@ -26,6 +29,8 @@ passport.use(
           role: user.role,
           is_active: user.is_active,
           is_email_verified: user.is_email_verified,
+          auth_provider: user.auth_provider,
+          google_id: user.google_id,
         });
       } catch (err) {
         return done(err);
@@ -51,6 +56,8 @@ passport.deserializeUser(async (id: string, done) => {
       role: user.role,
       is_active: user.is_active,
       is_email_verified: user.is_email_verified,
+      auth_provider: user.auth_provider,
+      google_id: user.google_id,
     });
   } catch (err) {
     done(err);

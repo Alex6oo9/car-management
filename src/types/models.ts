@@ -1,13 +1,15 @@
 export interface User {
   id: string;
   email: string;
-  password_hash: string;
+  password_hash: string | null;
   full_name: string;
   role: 'admin' | 'employee' | 'client';
   is_active: boolean;
   is_email_verified: boolean;
   created_at: Date;
   updated_at: Date;
+  auth_provider: 'local' | 'google';
+  google_id: string | null;
 }
 
 export interface Customer {

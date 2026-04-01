@@ -10,6 +10,9 @@ const envSchema = z.object({
   APP_URL: z.string().url().default('http://localhost:3000'),
   FROM_EMAIL: z.string().min(1).default('CarShow <onboarding@resend.dev>'),
   RESEND_API_KEY: z.string().min(1).optional(),
+  GOOGLE_CLIENT_ID: z.string().min(1).optional(),
+  GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
+  GOOGLE_CALLBACK_URL: z.string().url().optional(),
 });
 
 function loadEnv() {
