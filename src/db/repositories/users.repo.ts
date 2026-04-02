@@ -32,8 +32,8 @@ export const usersRepo = {
     const total = parseInt(countResult.rows[0].count, 10);
 
     const result = await pool.query(
-      `SELECT id, email, full_name, role, is_active, created_at, updated_at
-       FROM users ${where} ORDER BY created_at DESC`,
+      `SELECT id, email, full_name, role, is_active, is_email_verified, auth_provider, google_id, created_at, updated_at
+      FROM users ${where} ORDER BY created_at DESC`,
       params
     );
 
@@ -44,7 +44,7 @@ export const usersRepo = {
     const result = await pool.query(
       `INSERT INTO users (email, password_hash, full_name, role)
        VALUES ($1, $2, $3, $4)
-       RETURNING id, email, full_name, role, is_active, created_at, updated_at`,
+       RETURNING id, email, full_name, role, is_active, is_email_verified, auth_provider, google_id, created_at, updated_at`,
       [data.email, data.password_hash, data.full_name, data.role]
     );
     return result.rows[0];
@@ -71,7 +71,7 @@ export const usersRepo = {
 
     const result = await pool.query(
       `UPDATE users SET ${fields.join(', ')} WHERE id = $${paramIdx}
-       RETURNING id, email, full_name, role, is_active, created_at, updated_at`,
+       RETURNING id, email, full_name, role, is_active, is_email_verified, auth_provider, google_id, created_at, updated_at`,
       params
     );
     return result.rows[0] || null;
@@ -82,7 +82,7 @@ export const usersRepo = {
       `UPDATE users
        SET role = $1, updated_at = now()
        WHERE id = $2
-       RETURNING id, email, full_name, role, is_active, created_at, updated_at`,
+             RETURNING id, email, full_name, role, is_active, is_email_verified, auth_provider, google_id, created_at, updated_at`,
       [role, id]
     );
     return result.rows[0] || null;

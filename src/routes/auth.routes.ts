@@ -9,7 +9,16 @@ import type { Request, Response, NextFunction } from 'express';
 import { pool } from '../db/pool.js';
 import { generateToken, hashToken } from '../utils/tokens.js';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../services/email.js';
+import { env } from '../config/env.js';
 
+
+const isGuest = (req: Request, res: Response, next: NextFunction): void => {
+  if (req.isAuthenticated()) {
+    res.status(400).json({ error: 'Already authenticated' });
+    return;
+  }
+  next();
+};
 
 
 const router = Router();
@@ -238,6 +247,7 @@ router.post('/reset-password', validate(resetPasswordSchema), async (req: Reques
        WHERE id = $1`,
       [row.id]
     );
+   
     await pool.query(
       `DELETE FROM "session"
        WHERE sess->'passport'->>'user' = $1`,
@@ -249,6 +259,23 @@ router.post('/reset-password', validate(resetPasswordSchema), async (req: Reques
     next(err);
   }
 });
+
+router.get(
+  '/google',
+  isGuest,
+  passport.authenticate('google', { scope: ['profile', 'email'] })
+);
+
+router.get(
+  '/google/callback',
+  passport.authenticate('google', {
+    failureRedirect: `${env.APP_URL}/login`,
+    session: true,
+  }),
+  (req: Request, res: Response) => {
+    res.redirect(env.APP_URL);
+  }
+);
 
 router.post('/login', loginRateLimit, validate(loginSchema), (req: Request, res: Response, next: NextFunction): void => {
   passport.authenticate('local', (err: Error | null, user: Express.User | false, info: { message: string }) => {
@@ -278,6 +305,7 @@ router.post('/login', loginRateLimit, validate(loginSchema), (req: Request, res:
     });
   })(req, res, next);
 });
+
 
 router.post('/logout', isAuthenticated, (req: Request, res: Response, next: NextFunction): void => {
   req.logout((err) => {
