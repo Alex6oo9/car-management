@@ -4,15 +4,17 @@ Backend REST API for managing a car showroom with rental and purchase workflows,
 
 ## Features
 
-- Role-based access control (`admin`, `employee`, `client`)
+- Three-tier role-based access control (`admin`, `employee`, `client`)
 - Session-based authentication with Passport + PostgreSQL session store
+- Local (email/password) and Google OAuth 2.0 login
 - Email verification flow for new client registration
-- Password reset flow with one-time tokens and session revocation
-- User management (create/list/update/soft delete/hard delete/promotion)
+- Password reset flow with one-time SHA-256-hashed tokens and session revocation
+- User management (create/list/update/soft delete/hard delete/role promotion)
 - Car inventory management with publish/unpublish and image support
 - Rental workflow with date overlap protection and status transitions
 - Purchase workflow with atomic `paid -> sold` side effect
-- Public car listing endpoints
+- Public car listing endpoints with filtering
+- Startup cleanup of expired verification/reset tokens
 
 ## Tech Stack
 
@@ -21,8 +23,9 @@ Backend REST API for managing a car showroom with rental and purchase workflows,
 - Express.js v5
 - PostgreSQL 14+
 - `pg` (raw SQL, parameterized)
-- Passport.js + `express-session` + `connect-pg-simple`
+- Passport.js (`passport-local` + `passport-google-oauth20`) + `express-session` + `connect-pg-simple`
 - Zod validation
+- Resend (email delivery)
 - Pino + pino-http logging
 - Helmet, CORS, express-rate-limit
 
@@ -36,22 +39,25 @@ npm install
 
 ### 2) Configure environment variables
 
-Create a `.env` file in project root:
+Create a `.env` file in the project root:
 
 ```env
+# Required
 DATABASE_URL=postgresql://user:password@localhost:5432/car_showroom
 SESSION_SECRET=your-secret-at-least-16-chars
+
+# Optional — defaults shown
 CORS_ORIGIN=http://localhost:3000
 PORT=5000
 NODE_ENV=development
-
 APP_URL=http://localhost:3000
 FROM_EMAIL=CarShow <onboarding@resend.dev>
-# Optional: if omitted, emails are logged to console in dev mode
+
+# Optional — omit to log emails to console in dev mode
 # IMPORTANT: if present, must be non-empty (empty string fails validation)
 RESEND_API_KEY=your_resend_api_key
 
-# Google OAuth
+# Optional — omit to disable Google OAuth
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 GOOGLE_CALLBACK_URL=http://localhost:5000/auth/google/callback
@@ -69,7 +75,7 @@ npm run migrate
 npm run seed
 ```
 
-Default admin:
+Default admin credentials:
 - email: `admin@example.com`
 - password: `admin123`
 
@@ -79,45 +85,56 @@ Default admin:
 npm run dev
 ```
 
-API base URL:
-- `http://localhost:5000`
+API base URL: `http://localhost:5000`
 
-## Authentication Endpoints
+---
+
+## Health
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| POST | `/auth/register` | Public | Register a new `client` and send verification token |
-| GET | `/auth/verify-email` | Public | Verify email via `?token=...` |
-| POST | `/auth/resend-verification` | Public | Re-send verification link |
-| POST | `/auth/forgot-password` | Public | Request password reset link |
-| POST | `/auth/reset-password` | Public | Reset password with token |
-| GET | `/auth/google` | Public | Start Google OAuth (browser redirect) |
-| GET | `/auth/google/callback` | Public | Google OAuth callback (redirects to `APP_URL`) |
-| POST | `/auth/login` | Public | Login (blocked with `403` if email not verified) |
-| POST | `/auth/logout` | Required | Logout current session |
-| GET | `/auth/me` | Required | Get current authenticated user |
+| GET | `/health` | Public | Server health check |
 
-### Auth/Security Notes
+---
 
-- Register creates users with role `client`
-- Login returns `403` for unverified users
-- Google OAuth flow starts in a browser (`GET /auth/google`) and redirects back to `APP_URL`
-- Password reset tokens are one-time (`used = true` after success)
-- Expired tokens are deleted during reset/verify operations
+## Authentication Endpoints
+
+| Method | Endpoint | Auth | Rate Limit | Description |
+|---|---|---|---|---|
+| POST | `/auth/register` | Public | 100 / 15 min | Register a new `client` and send verification email |
+| GET | `/auth/verify-email` | Public | — | Verify email via `?token=...` |
+| POST | `/auth/resend-verification` | Public | 100 / 1 hr | Re-send verification link |
+| POST | `/auth/forgot-password` | Public | 100 / 1 hr | Request password reset link |
+| POST | `/auth/reset-password` | Public | — | Reset password with token |
+| GET | `/auth/google` | Guest only | — | Start Google OAuth (browser redirect) |
+| GET | `/auth/google/callback` | Public | — | Google OAuth callback (redirects to `APP_URL`) |
+| POST | `/auth/login` | Public | 100 / 15 min | Login (blocked with `403` if email not verified) |
+| POST | `/auth/logout` | Required | — | Logout current session |
+| GET | `/auth/me` | Required | — | Get current authenticated user |
+
+### Auth / Security Notes
+
+- `POST /auth/register` creates users with role `client`; email must be verified before login
+- `GET /auth/google` is guarded by `isGuest` — authenticated users are redirected away
+- Google OAuth links to an existing account if the same email is already registered
+- Password reset tokens are one-time (`used = true` after success) and expire after 1 hour
+- Verification and reset tokens are stored as SHA-256 hashes — raw tokens are never persisted
 - After successful password reset, all existing sessions for that user are revoked
 - Startup cleanup removes expired verification/reset tokens (`src/db/cleanup.ts` called from `src/server.ts`)
+
+---
 
 ## User Management (Admin only)
 
 | Method | Endpoint | Description |
 |---|---|---|
 | POST | `/admin/users` | Create employee |
-| GET | `/admin/users` | List users |
+| GET | `/admin/users` | List users (`?role=`, `?is_active=`) |
 | GET | `/admin/users/:id` | Get user by ID |
 | PATCH | `/admin/users/:id` | Update `full_name` / `is_active` |
-| PATCH | `/admin/users/:id/role` | Promote `client` -> `employee` |
+| PATCH | `/admin/users/:id/role` | Promote `client` → `employee` |
 | DELETE | `/admin/users/:id` | Soft delete (sets `is_active = false`) |
-| DELETE | `/admin/users/:id/hard` | Hard delete user + sessions (requires body confirm) |
+| DELETE | `/admin/users/:id/hard` | Hard delete user + sessions |
 
 Hard delete request body:
 
@@ -126,87 +143,169 @@ Hard delete request body:
 ```
 
 Hard delete protections:
-- cannot hard delete admin account
-- cannot hard delete your own account
+- Cannot hard delete the admin account
+- Cannot hard delete your own account
+
+---
 
 ## Other API Areas
 
 ### Public Cars
 
-- `GET /cars`
-- `GET /cars/:id`
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/cars` | List published cars (with images) |
+| GET | `/cars/:id` | Get published car by ID (with images) |
+
+Query params for `GET /cars`: `brand`, `model`, `year_min`, `year_max`, `price_min`, `price_max`, `rent_price_min`, `rent_price_max`, `limit` (default 20), `offset` (default 0)
 
 ### Customers (Admin + Employee)
 
-- `POST /admin/customers`
-- `GET /admin/customers`
-- `GET /admin/customers/:id`
-- `PATCH /admin/customers/:id`
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/admin/customers` | Create customer |
+| GET | `/admin/customers` | List customers (`?search=`, `?limit=`, `?offset=`) |
+| GET | `/admin/customers/:id` | Get customer by ID |
+| PATCH | `/admin/customers/:id` | Update customer |
 
 ### Cars (Admin + Employee)
 
-- `POST /admin/cars`
-- `GET /admin/cars`
-- `GET /admin/cars/:id`
-- `PATCH /admin/cars/:id`
-- `DELETE /admin/cars/:id`
-- `PATCH /admin/cars/:id/publish`
-- `POST /admin/cars/:id/images`
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/admin/cars` | Create car |
+| GET | `/admin/cars` | List all cars (`?limit=`, `?offset=`) |
+| GET | `/admin/cars/:id` | Get car by ID (with images) |
+| PATCH | `/admin/cars/:id` | Update car |
+| DELETE | `/admin/cars/:id` | Delete car (blocked if linked to rentals/purchases) |
+| PATCH | `/admin/cars/:id/publish` | Publish / unpublish car listing |
+| POST | `/admin/cars/:id/images` | Add image `{ storage_path, is_primary, sort_order }` |
 
 ### Rentals (Admin + Employee)
 
-- `POST /admin/rentals`
-- `GET /admin/rentals`
-- `GET /admin/rentals/:id`
-- `PATCH /admin/rentals/:id/status`
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/admin/rentals` | Create rental (checks date overlap) |
+| GET | `/admin/rentals` | List rentals (`?car_id=`, `?customer_id=`, `?status=`, `?start_date_from=`, `?start_date_to=`) |
+| GET | `/admin/rentals/:id` | Get rental by ID (with car + customer info) |
+| PATCH | `/admin/rentals/:id/status` | Update rental status |
 
 ### Purchases (Admin + Employee)
 
-- `POST /admin/purchases`
-- `GET /admin/purchases`
-- `GET /admin/purchases/:id`
-- `PATCH /admin/purchases/:id/status`
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/admin/purchases` | Create purchase |
+| GET | `/admin/purchases` | List purchases (`?car_id=`, `?customer_id=`, `?status=`) |
+| GET | `/admin/purchases/:id` | Get purchase by ID (with car + customer info) |
+| PATCH | `/admin/purchases/:id/status` | Update purchase status |
+
+---
 
 ## Rate Limits
 
-Configured in `src/middleware/rateLimit.ts` for:
+Configured in `src/middleware/rateLimit.ts`:
 
-- login
-- register
-- forgot-password
-- resend-verification
+| Endpoint | Window | Max Requests |
+|---|---|---|
+| `POST /auth/login` | 15 minutes | 100 |
+| `POST /auth/register` | 15 minutes | 100 |
+| `POST /auth/forgot-password` | 1 hour | 100 |
+| `POST /auth/resend-verification` | 1 hour | 100 |
 
 Tune these for production traffic and abuse patterns.
 
+---
+
 ## Database Migrations
 
-Current migration range includes:
+Migration files in `src/db/migrations/` (run in order via `npm run migrate`):
 
-- `001` to `011`
-- includes:
-  - email verification support
-  - `client` role support
-  - password reset token storage
+| Migration | Description |
+|---|---|
+| `001_create_users.sql` | `users` table — UUID PK, email, password_hash, full_name, role, is_active |
+| `002_create_customers.sql` | `customers` table — UUID PK, contact details, phone-or-email constraint |
+| `003_create_cars.sql` | `car_status` ENUM + `cars` table — VIN, pricing, status, is_published |
+| `004_create_car_images.sql` | `car_images` table — per-car images with sort order and one-primary constraint |
+| `005_create_rentals.sql` | `rental_status` ENUM + `rentals` table — dates, pricing snapshot, status |
+| `006_create_purchases.sql` | `purchase_status` ENUM + `purchases` table — sale price snapshot, status |
+| `007_create_session.sql` | `session` table — managed by connect-pg-simple |
+| `008_email_verification.sql` | `email_verification_tokens` table + `is_email_verified` column on users |
+| `009_add_client_role.sql` | Adds `client` to the `users.role` CHECK constraint |
+| `010_password_reset_tokens.sql` | `password_reset_tokens` table — hashed tokens, expiry, one-time use flag |
+| `011_add_google_auth.sql` | Adds `auth_provider`, `google_id` to users; makes `password_hash` nullable |
 
-## Postman Collection Notes
+---
 
-Collection file:
-- `CarShowroom.postman_collection.json`
+## Database Schema
 
-Important:
+### users
+```sql
+id UUID PK, email TEXT UNIQUE, password_hash TEXT (nullable for Google accounts),
+full_name TEXT, role TEXT CHECK ('admin'|'employee'|'client'),
+is_active BOOLEAN, is_email_verified BOOLEAN,
+auth_provider TEXT CHECK ('local'|'google'), google_id TEXT (nullable, unique),
+created_at, updated_at
+```
 
-- Keep exported collection synced after request updates
-- Use valid placeholders (`{{employee_id}}`, `{{car_id}}`, etc.)
-- For admin delete-protection test, use `http://localhost:5000/admin/users/{{admin_id}}`
-- If Postman shows "Unresolved Variable", define it in collection/environment variables first
+### customers
+```sql
+id UUID PK, full_name TEXT, phone TEXT, email TEXT, address_line TEXT,
+city TEXT, country TEXT, created_at, updated_at
+CONSTRAINT check_contact_method: phone IS NOT NULL OR email IS NOT NULL
+```
 
-## Production Checklist
+### cars
+```sql
+id UUID PK, vin TEXT UNIQUE, brand TEXT, model TEXT, year INT,
+mileage_km INT, sale_price NUMERIC(12,2), rent_price_per_day NUMERIC(12,2),
+currency_code CHAR(3) DEFAULT 'THB', status car_status DEFAULT 'available',
+is_published BOOLEAN, created_at, updated_at, created_by_user_id UUID FK→users
+```
+`car_status` ENUM: `available | reserved | rented | sold | maintenance`
 
-- Set real `RESEND_API_KEY` and verified sender domain/email
-- Tighten CORS origin(s) to trusted frontend domain(s)
-- Ensure secure session cookie settings (`secure`, `sameSite`, `maxAge`) are correct for deployment architecture
-- Review rate limits for realistic production thresholds
-- Enforce HTTPS end-to-end
+### car_images
+```sql
+id UUID PK, car_id UUID FK→cars CASCADE, storage_path TEXT,
+is_primary BOOLEAN, sort_order INT, created_at
+UNIQUE (car_id, sort_order)
+UNIQUE INDEX on (car_id) WHERE is_primary = true  -- one primary per car
+```
+
+### rentals
+```sql
+id UUID PK, car_id UUID FK→cars RESTRICT, customer_id UUID FK→customers RESTRICT,
+start_date DATE, end_date DATE, price_per_day NUMERIC(12,2), total_price NUMERIC(12,2),
+deposit_amount NUMERIC(12,2), currency_code CHAR(3), status rental_status,
+cancelled_reason TEXT, created_at, updated_at, created_by_user_id UUID FK→users
+CONSTRAINT check_dates: end_date >= start_date
+```
+`rental_status` ENUM: `pending | confirmed | active | completed | cancelled`
+
+### purchases
+```sql
+id UUID PK, car_id UUID FK→cars RESTRICT, customer_id UUID FK→customers RESTRICT,
+sale_price NUMERIC(12,2), currency_code CHAR(3), status purchase_status,
+created_at, updated_at, created_by_user_id UUID FK→users
+UNIQUE INDEX on (car_id) WHERE status = 'paid'  -- one paid purchase per car
+```
+`purchase_status` ENUM: `pending | paid | cancelled | refunded`
+
+### email_verification_tokens
+```sql
+id UUID PK, user_id UUID FK→users CASCADE, token_hash TEXT,
+expires_at TIMESTAMPTZ, created_at
+```
+
+### password_reset_tokens
+```sql
+id UUID PK, user_id UUID FK→users CASCADE, token_hash TEXT,
+expires_at TIMESTAMPTZ, used BOOLEAN DEFAULT false, created_at
+```
+
+### session
+```sql
+sid VARCHAR PK, sess JSON, expire TIMESTAMPTZ
+```
+Managed automatically by connect-pg-simple.
 
 ---
 
@@ -214,24 +313,82 @@ Important:
 
 ```
 src/
-├── server.ts              # Entry point
-├── app.ts                 # Express app factory
-├── config/env.ts          # Zod-validated environment
+├── server.ts              # Entry point — creates app, starts listener, runs cleanup
+├── app.ts                 # Express app factory — mounts all middleware & routes
+├── config/
+│   └── env.ts             # Zod-validated environment (exits on bad config)
 ├── db/
-│   ├── pool.ts            # PostgreSQL connection pool
-│   ├── migrate.ts         # Migration runner
+│   ├── pool.ts            # PostgreSQL connection pool (singleton)
+│   ├── migrate.ts         # Migration runner (reads SQL files in order)
+│   ├── cleanup.ts         # Deletes expired verification/reset tokens on startup
 │   ├── migrations/        # SQL migration files (001–011)
-│   ├── seeds/             # Admin seed script
-│   └── repositories/      # Data access layer (raw SQL)
-├── auth/                  # Passport, session, middleware
-├── middleware/            # Validation, error handler, rate limiter
-├── routes/                # Express route handlers
-├── validation/schemas.ts  # Zod schemas
-├── types/                 # TypeScript interfaces
-└── utils/                 # Logger, param helpers
+│   ├── seeds/             # Admin seed script (admin@example.com / admin123)
+│   └── repositories/      # Data access layer (raw SQL, parameterized)
+│       ├── users.repo.ts
+│       ├── customers.repo.ts
+│       ├── cars.repo.ts
+│       ├── rentals.repo.ts
+│       └── purchases.repo.ts
+├── auth/
+│   ├── passport.ts        # LocalStrategy + GoogleStrategy config
+│   ├── session.ts         # express-session config with PgSession store
+│   └── middleware.ts      # isAuthenticated, isGuest, isAdmin, isAdminOrEmployee
+├── middleware/
+│   ├── validate.ts        # validate(schema) and validateParams(schema) wrappers
+│   ├── errorHandler.ts    # Global Express error handler
+│   └── rateLimit.ts       # Rate limiters for auth endpoints
+├── routes/
+│   ├── auth.routes.ts
+│   ├── admin.users.routes.ts
+│   ├── admin.customers.routes.ts
+│   ├── admin.cars.routes.ts
+│   ├── admin.rentals.routes.ts
+│   ├── admin.purchases.routes.ts
+│   └── public.cars.routes.ts
+├── services/
+│   └── email.ts           # sendVerificationEmail, sendPasswordResetEmail (Resend SDK)
+├── validation/
+│   └── schemas.ts         # All Zod schemas
+├── types/
+│   ├── models.ts          # TypeScript interfaces for all DB entities
+│   └── express.d.ts       # Augments Express.User with id, email, full_name, role
+└── utils/
+    ├── logger.ts          # Pino logger instance
+    ├── tokens.ts          # generateToken(), hashToken() (SHA-256)
+    └── params.ts          # getParam(req, name) — handles Express 5 string|string[]
 ```
 
-## Testing
+---
 
-- Postman collection: `CarShowroom.postman_collection.json`
-- Google OAuth: start in browser with `GET /auth/google` then verify session with `GET /auth/me`
+## Production Checklist
+
+- Set real `RESEND_API_KEY` and verified sender domain/email
+- Tighten `CORS_ORIGIN` to trusted frontend domain(s)
+- Ensure secure session cookie settings (`secure`, `sameSite`, `maxAge`) are correct for deployment architecture
+- Review rate limits for realistic production thresholds
+- Enforce HTTPS end-to-end
+- Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL` if Google OAuth is needed
+
+---
+
+## Postman Collection
+
+Collection file: `CarShowroom.postman_collection.json`
+
+Notes:
+- Keep exported collection synced after endpoint changes
+- Use valid variable placeholders (`{{employee_id}}`, `{{car_id}}`, etc.)
+- Define all variables in collection or environment before running
+- For Google OAuth testing: start flow in a browser with `GET /auth/google`, then verify session with `GET /auth/me`
+
+---
+
+## Scripts
+
+```bash
+npm run dev       # Start dev server with hot reload (tsx watch)
+npm run build     # Compile TypeScript → dist/
+npm start         # Run compiled server (node dist/server.js)
+npm run migrate   # Run all SQL migrations in order
+npm run seed      # Create admin@example.com / admin123
+```
