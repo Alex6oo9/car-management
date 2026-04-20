@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import { isAuthenticated, isAdminOrEmployee } from '../auth/middleware.js';
 import { validate, validateParams } from '../middleware/validate.js';
-import { createCarSchema, updateCarSchema, publishCarSchema, createCarImageSchema, uuidParamSchema } from '../validation/schemas.js';
+import { createCarSchema, updateCarSchema, publishCarSchema, uuidParamSchema } from '../validation/schemas.js';
 import { carsRepo } from '../db/repositories/cars.repo.js';
 import { getParam } from '../utils/params.js';
+import { upload } from '../middleware/upload.js';
+import { uploadImageBuffer } from '../utils/cloudinary.js';
 import type { Request, Response } from 'express';
 
 const router = Router();
@@ -99,19 +101,38 @@ router.patch('/:id/publish', validateParams(uuidParamSchema), validate(publishCa
   }
 });
 
-router.post('/:id/images', validateParams(uuidParamSchema), validate(createCarImageSchema), async (req: Request, res: Response): Promise<void> => {
+router.post('/:id/images', validateParams(uuidParamSchema), upload.single('image'), async (req: Request, res: Response): Promise<void> => {
   try {
+    if (!req.file) {
+      res.status(400).json({ error: 'Image file is required', code: 'MISSING_FILE' });
+      return;
+    }
+
     const car = await carsRepo.findById(getParam(req, 'id'));
     if (!car) {
       res.status(404).json({ error: 'Car not found', code: 'NOT_FOUND' });
       return;
     }
 
-    const image = await carsRepo.addImage(getParam(req, 'id'), req.body);
+    const { url } = await uploadImageBuffer(req.file.buffer, req.file.mimetype);
+
+    const is_primary = req.body.is_primary === 'true' || req.body.is_primary === true;
+    const sort_order = req.body.sort_order !== undefined ? parseInt(req.body.sort_order, 10) : 0;
+
+    const image = await carsRepo.addImage(getParam(req, 'id'), {
+      storage_path: url,
+      is_primary,
+      sort_order,
+    });
+
     res.status(201).json(image);
   } catch (err: any) {
     if (err.code === '23505') {
       res.status(409).json({ error: 'Sort order conflict or duplicate primary image', code: 'CONSTRAINT_VIOLATION' });
+      return;
+    }
+    if (err.message?.includes('Only JPEG')) {
+      res.status(400).json({ error: err.message, code: 'INVALID_FILE_TYPE' });
       return;
     }
     console.error('Error adding car image:', err);

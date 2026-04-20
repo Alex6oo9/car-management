@@ -892,27 +892,37 @@
 								"type": "text/javascript",
 								"exec": [
 									"pm.test('Status 201', () => pm.response.to.have.status(201));",
-									"pm.test('Is primary image', () => pm.expect(pm.response.json().is_primary).to.be.true);"
+									"pm.test('Is primary image', () => pm.expect(pm.response.json().is_primary).to.be.true);",
+									"pm.test('Has Cloudinary URL', () => pm.expect(pm.response.json().storage_path).to.include('cloudinary'));"
 								]
 							}
 						}
 					],
 					"request": {
 						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
+						"header": [],
 						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"storage_path\": \"/uploads/toyota-camry-front.jpg\",\n  \"is_primary\": true,\n  \"sort_order\": 1\n}",
-							"options": {
-								"raw": {
-									"language": "json"
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "image",
+									"type": "file",
+									"src": [],
+									"description": "Select an image file (JPEG, PNG, or WebP — max 5 MB)"
+								},
+								{
+									"key": "is_primary",
+									"value": "true",
+									"type": "text",
+									"description": "Set as the primary/cover image"
+								},
+								{
+									"key": "sort_order",
+									"value": "1",
+									"type": "text",
+									"description": "Display order (0-based integer)"
 								}
-							}
+							]
 						},
 						"url": {
 							"raw": "http://localhost:5000/admin/cars/{{car_id}}/images",
@@ -928,7 +938,7 @@
 								"images"
 							]
 						},
-						"description": "Add an image. Only one primary image allowed per car (enforced by unique index)."
+						"description": "Upload an image file to Cloudinary and attach it to the car. Send as multipart/form-data. Only one primary image allowed per car (enforced by unique index)."
 					},
 					"response": []
 				},
@@ -941,27 +951,37 @@
 								"type": "text/javascript",
 								"exec": [
 									"pm.test('Status 201', () => pm.response.to.have.status(201));",
-									"pm.test('Not primary', () => pm.expect(pm.response.json().is_primary).to.be.false);"
+									"pm.test('Not primary', () => pm.expect(pm.response.json().is_primary).to.be.false);",
+									"pm.test('Has Cloudinary URL', () => pm.expect(pm.response.json().storage_path).to.include('cloudinary'));"
 								]
 							}
 						}
 					],
 					"request": {
 						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
+						"header": [],
 						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"storage_path\": \"/uploads/toyota-camry-interior.jpg\",\n  \"is_primary\": false,\n  \"sort_order\": 2\n}",
-							"options": {
-								"raw": {
-									"language": "json"
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "image",
+									"type": "file",
+									"src": [],
+									"description": "Select an image file (JPEG, PNG, or WebP — max 5 MB)"
+								},
+								{
+									"key": "is_primary",
+									"value": "false",
+									"type": "text",
+									"description": "Secondary image"
+								},
+								{
+									"key": "sort_order",
+									"value": "2",
+									"type": "text",
+									"description": "Display order (0-based integer)"
 								}
-							}
+							]
 						},
 						"url": {
 							"raw": "http://localhost:5000/admin/cars/{{car_id}}/images",
@@ -977,7 +997,7 @@
 								"images"
 							]
 						},
-						"description": "Add a second image with a different sort_order."
+						"description": "Upload a second image file to Cloudinary with a different sort_order."
 					},
 					"response": []
 				},
