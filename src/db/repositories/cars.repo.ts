@@ -1,8 +1,11 @@
 import { pool } from '../pool.js';
-import type { Car, CarImage } from '../../types/models.js';
+import type { Car, CarImage, CarDocument } from '../../types/models.js';
 
 export const carsRepo = {
-  async findById(id: string): Promise<(Car & { images: CarImage[] }) | null> {
+  async findById(
+    id: string,
+    opts?: { includeDocuments?: boolean }
+  ): Promise<(Car & { images: CarImage[]; documents?: CarDocument[] }) | null> {
     const carResult = await pool.query('SELECT * FROM cars WHERE id = $1', [id]);
     if (carResult.rows.length === 0) return null;
 
@@ -10,6 +13,14 @@ export const carsRepo = {
       'SELECT * FROM car_images WHERE car_id = $1 ORDER BY sort_order',
       [id]
     );
+
+    if (opts?.includeDocuments) {
+      const docsResult = await pool.query(
+        'SELECT * FROM car_documents WHERE car_id = $1 ORDER BY sort_order',
+        [id]
+      );
+      return { ...carResult.rows[0], images: imagesResult.rows, documents: docsResult.rows };
+    }
 
     return { ...carResult.rows[0], images: imagesResult.rows };
   },
@@ -127,17 +138,26 @@ export const carsRepo = {
     currency_code?: string;
     status?: string;
     is_published?: boolean;
+    fuel?: string;
+    transmission?: string;
+    color?: string;
+    engine?: string;
+    drive?: string;
+    seats?: number;
     created_by_user_id?: string;
   }): Promise<Car> {
     const result = await pool.query(
-      `INSERT INTO cars (vin, brand, model, year, mileage_km, sale_price, rent_price_per_day, currency_code, status, is_published, created_by_user_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      `INSERT INTO cars (vin, brand, model, year, mileage_km, sale_price, rent_price_per_day, currency_code, status, is_published, fuel, transmission, color, engine, drive, seats, created_by_user_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
        RETURNING *`,
       [
         data.vin ?? null, data.brand, data.model, data.year,
         data.mileage_km ?? 0, data.sale_price ?? null, data.rent_price_per_day ?? null,
         data.currency_code ?? 'THB', data.status ?? 'available',
-        data.is_published ?? false, data.created_by_user_id ?? null,
+        data.is_published ?? false,
+        data.fuel ?? null, data.transmission ?? null, data.color ?? null,
+        data.engine ?? null, data.drive ?? null, data.seats ?? null,
+        data.created_by_user_id ?? null,
       ]
     );
     return result.rows[0];
@@ -147,6 +167,7 @@ export const carsRepo = {
     const allowedFields = [
       'vin', 'brand', 'model', 'year', 'mileage_km', 'sale_price',
       'rent_price_per_day', 'currency_code', 'status', 'is_published',
+      'fuel', 'transmission', 'color', 'engine', 'drive', 'seats',
     ];
 
     const fields: string[] = [];

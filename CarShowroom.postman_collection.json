@@ -2576,6 +2576,722 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "12. Rental Terms (Admin)",
+			"item": [
+				{
+					"name": "Create Rental Term",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 201', () => pm.response.to.have.status(201));",
+									"const json = pm.response.json();",
+									"pm.test('Term created', () => pm.expect(json.title).to.equal('Minimum Rental Period'));",
+									"if (json.id) { pm.collectionVariables.set('rental_term_id', json.id); console.log('Saved rental_term_id:', json.id); }"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Minimum Rental Period\",\n  \"description\": \"All rentals must be for a minimum of 1 day. No hourly rentals are available.\",\n  \"is_active\": true,\n  \"sort_order\": 1\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:5000/admin/rental-terms",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "5000",
+							"path": [
+								"admin",
+								"rental-terms"
+							]
+						},
+						"description": "Creates a new rental term. Saves rental_term_id variable."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Rental Term (Second)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 201', () => pm.response.to.have.status(201));",
+									"pm.test('Second term created', () => pm.expect(pm.response.json().title).to.equal('Late Return Policy'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Late Return Policy\",\n  \"description\": \"Vehicles returned after the agreed time are subject to an additional day charge.\",\n  \"is_active\": false,\n  \"sort_order\": 2\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:5000/admin/rental-terms",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "5000",
+							"path": [
+								"admin",
+								"rental-terms"
+							]
+						},
+						"description": "Creates a second rental term with is_active=false for filter testing."
+					},
+					"response": []
+				},
+				{
+					"name": "List All Rental Terms",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200', () => pm.response.to.have.status(200));",
+									"pm.test('Returns array', () => pm.expect(pm.response.json()).to.be.an('array'));",
+									"pm.test('Has 2 terms', () => pm.expect(pm.response.json().length).to.equal(2));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:5000/admin/rental-terms",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "5000",
+							"path": [
+								"admin",
+								"rental-terms"
+							]
+						},
+						"description": "Returns all rental terms (both active and inactive)."
+					},
+					"response": []
+				},
+				{
+					"name": "List Active Rental Terms (Admin Filter)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200', () => pm.response.to.have.status(200));",
+									"const json = pm.response.json();",
+									"pm.test('Only active terms returned', () => json.forEach(t => pm.expect(t.is_active).to.be.true));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:5000/admin/rental-terms?is_active=true",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "5000",
+							"path": [
+								"admin",
+								"rental-terms"
+							],
+							"query": [
+								{
+									"key": "is_active",
+									"value": "true"
+								}
+							]
+						},
+						"description": "Filters to active-only terms using ?is_active=true."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Rental Term by ID",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200', () => pm.response.to.have.status(200));",
+									"pm.test('Correct term returned', () => pm.expect(pm.response.json().title).to.equal('Minimum Rental Period'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:5000/admin/rental-terms/{{rental_term_id}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "5000",
+							"path": [
+								"admin",
+								"rental-terms",
+								"{{rental_term_id}}"
+							]
+						},
+						"description": "Fetches a single rental term by UUID."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Rental Term",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200', () => pm.response.to.have.status(200));",
+									"pm.test('Sort order updated', () => pm.expect(pm.response.json().sort_order).to.equal(10));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"sort_order\": 10\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:5000/admin/rental-terms/{{rental_term_id}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "5000",
+							"path": [
+								"admin",
+								"rental-terms",
+								"{{rental_term_id}}"
+							]
+						},
+						"description": "Partial update. Only provided fields are changed."
+					},
+					"response": []
+				},
+				{
+					"name": "Deactivate Rental Term",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200', () => pm.response.to.have.status(200));",
+									"pm.test('Term deactivated', () => pm.expect(pm.response.json().is_active).to.be.false);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"is_active\": false\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:5000/admin/rental-terms/{{rental_term_id}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "5000",
+							"path": [
+								"admin",
+								"rental-terms",
+								"{{rental_term_id}}"
+							]
+						},
+						"description": "Sets is_active=false to hide the term from the public endpoint."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Rental Term",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200', () => pm.response.to.have.status(200));",
+									"pm.test('Deletion confirmed', () => pm.expect(pm.response.json().message).to.include('deleted'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:5000/admin/rental-terms/{{rental_term_id}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "5000",
+							"path": [
+								"admin",
+								"rental-terms",
+								"{{rental_term_id}}"
+							]
+						},
+						"description": "Hard deletes the rental term. No soft-delete for this resource."
+					},
+					"response": []
+				}
+			],
+			"description": "Full CRUD for rental terms. Accessible by admin and employees. Supports is_active toggle and sort_order."
+		},
+		{
+			"name": "13. Rental Terms (Public)",
+			"item": [
+				{
+					"name": "List Active Rental Terms (Public)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200', () => pm.response.to.have.status(200));",
+									"pm.test('Returns array', () => pm.expect(pm.response.json()).to.be.an('array'));",
+									"const json = pm.response.json();",
+									"pm.test('Only active terms', () => json.forEach(t => pm.expect(t.is_active).to.be.true));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:5000/rental-terms",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "5000",
+							"path": [
+								"rental-terms"
+							]
+						},
+						"description": "Public endpoint — no auth required. Returns only is_active=true terms ordered by sort_order."
+					},
+					"response": []
+				}
+			],
+			"description": "Public rental terms endpoint. No authentication required. Returns only active terms."
+		},
+		{
+			"name": "14. Car Documents",
+			"item": [
+				{
+					"name": "Add Car Document",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 201', () => pm.response.to.have.status(201));",
+									"const json = pm.response.json();",
+									"pm.test('Document created', () => pm.expect(json.field_name).to.equal('Insurance Status'));",
+									"if (json.id) { pm.collectionVariables.set('doc_id', json.id); console.log('Saved doc_id:', json.id); }"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"field_name\": \"Insurance Status\",\n  \"field_value\": \"Valid until Dec 2026\",\n  \"sort_order\": 1\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:5000/admin/cars/{{car_id}}/documents",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "5000",
+							"path": [
+								"admin",
+								"cars",
+								"{{car_id}}",
+								"documents"
+							]
+						},
+						"description": "Adds a document field to the car. Saves doc_id variable."
+					},
+					"response": []
+				},
+				{
+					"name": "Add Car Document (Second)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 201', () => pm.response.to.have.status(201));",
+									"pm.test('Second doc created', () => pm.expect(pm.response.json().field_name).to.equal('Last Service Date'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"field_name\": \"Last Service Date\",\n  \"field_value\": \"2025-11-15\",\n  \"sort_order\": 2\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:5000/admin/cars/{{car_id}}/documents",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "5000",
+							"path": [
+								"admin",
+								"cars",
+								"{{car_id}}",
+								"documents"
+							]
+						},
+						"description": "Adds a second document field for list testing."
+					},
+					"response": []
+				},
+				{
+					"name": "List Car Documents",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200', () => pm.response.to.have.status(200));",
+									"pm.test('Returns array', () => pm.expect(pm.response.json()).to.be.an('array'));",
+									"pm.test('Has 2 documents', () => pm.expect(pm.response.json().length).to.equal(2));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:5000/admin/cars/{{car_id}}/documents",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "5000",
+							"path": [
+								"admin",
+								"cars",
+								"{{car_id}}",
+								"documents"
+							]
+						},
+						"description": "Returns all document fields for the car ordered by sort_order."
+					},
+					"response": []
+				},
+				{
+					"name": "Verify Documents in GET Car",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200', () => pm.response.to.have.status(200));",
+									"const json = pm.response.json();",
+									"pm.test('Has documents array', () => pm.expect(json.documents).to.be.an('array'));",
+									"pm.test('Documents populated', () => pm.expect(json.documents.length).to.equal(2));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:5000/admin/cars/{{car_id}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "5000",
+							"path": [
+								"admin",
+								"cars",
+								"{{car_id}}"
+							]
+						},
+						"description": "GET /admin/cars/:id includes a documents[] array alongside images[]."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Car Document by ID",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200', () => pm.response.to.have.status(200));",
+									"pm.test('Correct document returned', () => pm.expect(pm.response.json().field_name).to.equal('Insurance Status'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:5000/admin/cars/{{car_id}}/documents/{{doc_id}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "5000",
+							"path": [
+								"admin",
+								"cars",
+								"{{car_id}}",
+								"documents",
+								"{{doc_id}}"
+							]
+						},
+						"description": "Fetches a single car document by ID, scoped to the parent car."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Car Document",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200', () => pm.response.to.have.status(200));",
+									"pm.test('Value updated', () => pm.expect(pm.response.json().field_value).to.equal('Valid until Jun 2027'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"field_value\": \"Valid until Jun 2027\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:5000/admin/cars/{{car_id}}/documents/{{doc_id}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "5000",
+							"path": [
+								"admin",
+								"cars",
+								"{{car_id}}",
+								"documents",
+								"{{doc_id}}"
+							]
+						},
+						"description": "Partial update. Only provided fields are changed."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Car Document",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200', () => pm.response.to.have.status(200));",
+									"pm.test('Deletion confirmed', () => pm.expect(pm.response.json().message).to.include('deleted'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:5000/admin/cars/{{car_id}}/documents/{{doc_id}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "5000",
+							"path": [
+								"admin",
+								"cars",
+								"{{car_id}}",
+								"documents",
+								"{{doc_id}}"
+							]
+						},
+						"description": "Hard deletes the document field."
+					},
+					"response": []
+				},
+				{
+					"name": "Verify 404 After Delete",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 404', () => pm.response.to.have.status(404));",
+									"pm.test('NOT_FOUND code', () => pm.expect(pm.response.json().code).to.equal('NOT_FOUND'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:5000/admin/cars/{{car_id}}/documents/{{doc_id}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "5000",
+							"path": [
+								"admin",
+								"cars",
+								"{{car_id}}",
+								"documents",
+								"{{doc_id}}"
+							]
+						},
+						"description": "Confirms the deleted document returns 404."
+					},
+					"response": []
+				}
+			],
+			"description": "Car document key-value management. All endpoints require admin or employee auth. Documents are included in GET /admin/cars/:id but not in the public cars endpoint."
 		}
 	],
 	"event": [
@@ -2646,6 +3362,16 @@
 		},
 		{
 			"key": "client_user_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "rental_term_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "doc_id",
 			"value": "",
 			"type": "string"
 		}

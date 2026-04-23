@@ -38,6 +38,12 @@ export interface Car {
   currency_code: string;
   status: CarStatus;
   is_published: boolean;
+  fuel: 'petrol' | 'diesel' | 'electric' | 'hybrid' | 'plug-in hybrid' | null;
+  transmission: 'automatic' | 'manual' | 'cvt' | null;
+  color: string | null;
+  engine: string | null;
+  drive: 'fwd' | 'rwd' | 'awd' | '4wd' | null;
+  seats: number | null;
   created_at: Date;
   updated_at: Date;
   created_by_user_id: string | null;
@@ -83,4 +89,26 @@ export interface Purchase {
   created_at: Date;
   updated_at: Date;
   created_by_user_id: string | null;
+}
+
+export interface RentalTerm {
+  id: string;
+  title: string;
+  description: string;
+  is_active: boolean;
+  sort_order: number;
+  created_by_user_id: string | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface CarDocument {
+  id: string;
+  car_id: string;
+  field_name: string;
+  field_value: string;
+  sort_order: number;
+  created_by_user_id: string | null;
+  created_at: Date;
+  updated_at: Date;
 }

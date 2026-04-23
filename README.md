@@ -172,13 +172,39 @@ Query params for `GET /cars`: `brand`, `model`, `year_min`, `year_max`, `price_m
 
 | Method | Endpoint | Description |
 |---|---|---|
-| POST | `/admin/cars` | Create car |
+| POST | `/admin/cars` | Create car (supports `fuel`, `transmission`, `color`, `engine`, `drive`, `seats`) |
 | GET | `/admin/cars` | List all cars (`?limit=`, `?offset=`) |
-| GET | `/admin/cars/:id` | Get car by ID (with images) |
-| PATCH | `/admin/cars/:id` | Update car |
+| GET | `/admin/cars/:id` | Get car by ID (with images + documents array) |
+| PATCH | `/admin/cars/:id` | Update car (including spec fields) |
 | DELETE | `/admin/cars/:id` | Delete car (blocked if linked to rentals/purchases) |
 | PATCH | `/admin/cars/:id/publish` | Publish / unpublish car listing |
 | POST | `/admin/cars/:id/images` | Add image `{ storage_path, is_primary, sort_order }` |
+
+### Car Documents (Admin + Employee)
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/admin/cars/:carId/documents` | Add document field `{ field_name, field_value, sort_order? }` |
+| GET | `/admin/cars/:carId/documents` | List all documents for a car (ordered by `sort_order`) |
+| GET | `/admin/cars/:carId/documents/:id` | Get document by ID |
+| PATCH | `/admin/cars/:carId/documents/:id` | Update document field |
+| DELETE | `/admin/cars/:carId/documents/:id` | Delete document field |
+
+### Rental Terms (Admin + Employee)
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/admin/rental-terms` | Create rental term `{ title, description, is_active?, sort_order? }` |
+| GET | `/admin/rental-terms` | List all terms (`?is_active=true\|false`) |
+| GET | `/admin/rental-terms/:id` | Get term by ID |
+| PATCH | `/admin/rental-terms/:id` | Update term |
+| DELETE | `/admin/rental-terms/:id` | Hard delete term |
+
+### Rental Terms (Public)
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/rental-terms` | List active rental terms (no auth required), ordered by `sort_order` |
 
 ### Rentals (Admin + Employee)
 
@@ -232,6 +258,9 @@ Migration files in `src/db/migrations/` (run in order via `npm run migrate`):
 | `009_add_client_role.sql` | Adds `client` to the `users.role` CHECK constraint |
 | `010_password_reset_tokens.sql` | `password_reset_tokens` table — hashed tokens, expiry, one-time use flag |
 | `011_add_google_auth.sql` | Adds `auth_provider`, `google_id` to users; makes `password_hash` nullable |
+| `012_add_car_spec_columns.sql` | Adds 6 nullable spec columns to `cars`: `fuel`, `transmission`, `color`, `engine`, `drive`, `seats` |
+| `013_create_rental_terms.sql` | `rental_terms` table — global policy terms with `is_active` toggle and `sort_order` |
+| `014_create_car_documents.sql` | `car_documents` table — per-car key-value metadata (field_name + field_value) |
 
 ---
 
@@ -258,9 +287,17 @@ CONSTRAINT check_contact_method: phone IS NOT NULL OR email IS NOT NULL
 id UUID PK, vin TEXT UNIQUE, brand TEXT, model TEXT, year INT,
 mileage_km INT, sale_price NUMERIC(12,2), rent_price_per_day NUMERIC(12,2),
 currency_code CHAR(3) DEFAULT 'THB', status car_status DEFAULT 'available',
-is_published BOOLEAN, created_at, updated_at, created_by_user_id UUID FK→users
+is_published BOOLEAN,
+fuel TEXT CHECK ('petrol'|'diesel'|'electric'|'hybrid'|'plug-in hybrid'),
+transmission TEXT CHECK ('automatic'|'manual'|'cvt'),
+color TEXT, engine TEXT,
+drive TEXT CHECK ('fwd'|'rwd'|'awd'|'4wd'),
+seats INTEGER CHECK (seats > 0 AND seats <= 20),
+created_at, updated_at, created_by_user_id UUID FK→users
 ```
 `car_status` ENUM: `available | reserved | rented | sold | maintenance`
+
+All 6 spec columns are nullable — existing records are unaffected.
 
 ### car_images
 ```sql
@@ -269,6 +306,27 @@ is_primary BOOLEAN, sort_order INT, created_at
 UNIQUE (car_id, sort_order)
 UNIQUE INDEX on (car_id) WHERE is_primary = true  -- one primary per car
 ```
+
+### car_documents
+```sql
+id UUID PK, car_id UUID FK→cars CASCADE,
+field_name TEXT NOT NULL, field_value TEXT NOT NULL,
+sort_order INT DEFAULT 0,
+created_by_user_id UUID FK→users SET NULL,
+created_at, updated_at
+INDEX on (car_id)
+```
+Admin-defined key-value metadata per car. Not exposed on public endpoints.
+
+### rental_terms
+```sql
+id UUID PK, title TEXT NOT NULL, description TEXT NOT NULL,
+is_active BOOLEAN DEFAULT true, sort_order INT DEFAULT 0,
+created_by_user_id UUID FK→users SET NULL,
+created_at, updated_at
+INDEX on (is_active)
+```
+Global policy terms — no FK to cars, rentals, or customers.
 
 ### rentals
 ```sql
@@ -321,14 +379,16 @@ src/
 │   ├── pool.ts            # PostgreSQL connection pool (singleton)
 │   ├── migrate.ts         # Migration runner (reads SQL files in order)
 │   ├── cleanup.ts         # Deletes expired verification/reset tokens on startup
-│   ├── migrations/        # SQL migration files (001–011)
+│   ├── migrations/        # SQL migration files (001–014)
 │   ├── seeds/             # Admin seed script (admin@example.com / admin123)
 │   └── repositories/      # Data access layer (raw SQL, parameterized)
 │       ├── users.repo.ts
 │       ├── customers.repo.ts
 │       ├── cars.repo.ts
 │       ├── rentals.repo.ts
-│       └── purchases.repo.ts
+│       ├── purchases.repo.ts
+│       ├── rental-terms.repo.ts
+│       └── car-documents.repo.ts
 ├── auth/
 │   ├── passport.ts        # LocalStrategy + GoogleStrategy config
 │   ├── session.ts         # express-session config with PgSession store
@@ -342,9 +402,12 @@ src/
 │   ├── admin.users.routes.ts
 │   ├── admin.customers.routes.ts
 │   ├── admin.cars.routes.ts
+│   ├── admin.car-documents.routes.ts
 │   ├── admin.rentals.routes.ts
 │   ├── admin.purchases.routes.ts
-│   └── public.cars.routes.ts
+│   ├── admin.rental-terms.routes.ts
+│   ├── public.cars.routes.ts
+│   └── public.rental-terms.routes.ts
 ├── services/
 │   └── email.ts           # sendVerificationEmail, sendPasswordResetEmail (Resend SDK)
 ├── validation/

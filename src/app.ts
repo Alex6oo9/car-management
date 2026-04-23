@@ -15,7 +15,10 @@ import adminCustomersRoutes from './routes/admin.customers.routes.js';
 import adminCarsRoutes from './routes/admin.cars.routes.js';
 import adminRentalsRoutes from './routes/admin.rentals.routes.js';
 import adminPurchasesRoutes from './routes/admin.purchases.routes.js';
+import adminRentalTermsRoutes from './routes/admin.rental-terms.routes.js';
+import adminCarDocumentsRoutes from './routes/admin.car-documents.routes.js';
 import publicCarsRoutes from './routes/public.cars.routes.js';
+import publicRentalTermsRoutes from './routes/public.rental-terms.routes.js';
 
 export function createApp() {
   const app = express();
@@ -41,6 +44,7 @@ export function createApp() {
 
   // Public routes
   app.use('/cars', publicCarsRoutes);
+  app.use('/rental-terms', publicRentalTermsRoutes);
 
   // Auth routes
   app.use('/auth', authRoutes);
@@ -49,8 +53,10 @@ export function createApp() {
   app.use('/admin/users', adminUsersRoutes);
   app.use('/admin/customers', adminCustomersRoutes);
   app.use('/admin/cars', adminCarsRoutes);
+  app.use('/admin/cars', adminCarDocumentsRoutes);
   app.use('/admin/rentals', adminRentalsRoutes);
   app.use('/admin/purchases', adminPurchasesRoutes);
+  app.use('/admin/rental-terms', adminRentalTermsRoutes);
 
   // Health check
   app.get('/health', (_req, res) => {

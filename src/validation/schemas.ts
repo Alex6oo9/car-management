@@ -86,6 +86,12 @@ export const createCarSchema = z.object({
   currency_code: z.string().length(3).default('THB'),
   status: z.enum(['available', 'reserved', 'rented', 'sold', 'maintenance']).default('available'),
   is_published: z.boolean().default(false),
+  fuel: z.enum(['petrol', 'diesel', 'electric', 'hybrid', 'plug-in hybrid']).optional(),
+  transmission: z.enum(['automatic', 'manual', 'cvt']).optional(),
+  color: z.string().optional(),
+  engine: z.string().optional(),
+  drive: z.enum(['fwd', 'rwd', 'awd', '4wd']).optional(),
+  seats: z.number().int().min(1).max(20).optional(),
 });
 
 export const updateCarSchema = z.object({
@@ -99,6 +105,12 @@ export const updateCarSchema = z.object({
   currency_code: z.string().length(3).optional(),
   status: z.enum(['available', 'reserved', 'rented', 'sold', 'maintenance']).optional(),
   is_published: z.boolean().optional(),
+  fuel: z.enum(['petrol', 'diesel', 'electric', 'hybrid', 'plug-in hybrid']).optional(),
+  transmission: z.enum(['automatic', 'manual', 'cvt']).optional(),
+  color: z.string().optional(),
+  engine: z.string().optional(),
+  drive: z.enum(['fwd', 'rwd', 'awd', '4wd']).optional(),
+  seats: z.number().int().min(1).max(20).optional(),
 });
 
 export const publishCarSchema = z.object({
@@ -139,6 +151,43 @@ export const createPurchaseSchema = z.object({
 
 export const updatePurchaseStatusSchema = z.object({
   status: z.enum(['pending', 'paid', 'cancelled', 'refunded']),
+});
+
+// ── Rental Term Schemas ──
+
+export const createRentalTermSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().min(1),
+  is_active: z.boolean().default(true),
+  sort_order: z.number().int().min(0).default(0),
+});
+
+export const updateRentalTermSchema = z.object({
+  title: z.string().min(1).optional(),
+  description: z.string().min(1).optional(),
+  is_active: z.boolean().optional(),
+  sort_order: z.number().int().min(0).optional(),
+});
+
+// ── Car Document Schemas ──
+
+export const createCarDocumentSchema = z.object({
+  field_name: z.string().min(1),
+  field_value: z.string().min(1),
+  sort_order: z.number().int().min(0).default(0),
+});
+
+export const updateCarDocumentSchema = z.object({
+  field_name: z.string().min(1).optional(),
+  field_value: z.string().min(1).optional(),
+  sort_order: z.number().int().min(0).optional(),
+});
+
+export const carIdParamSchema = z.object({ carId: z.string().uuid() });
+
+export const carDocumentParamSchema = z.object({
+  carId: z.string().uuid(),
+  id: z.string().uuid(),
 });
 
 // ── Query Schemas ──
