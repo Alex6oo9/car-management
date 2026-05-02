@@ -32,7 +32,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 
 router.get('/:id', validateParams(uuidParamSchema), async (req: Request, res: Response): Promise<void> => {
   try {
-    const car = await carsRepo.findById(getParam(req, 'id'));
+    const car = await carsRepo.findById(getParam(req, 'id'), { includeDocuments: true });
     if (!car) {
       res.status(404).json({ error: 'Car not found', code: 'NOT_FOUND' });
       return;

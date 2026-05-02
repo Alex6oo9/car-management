@@ -248,6 +248,60 @@ export const carsRepo = {
     }
   },
 
+  async updateImage(
+    carId: string,
+    imageId: string,
+    data: { is_primary?: boolean; sort_order?: number }
+  ): Promise<CarImage | null> {
+    const fields: string[] = [];
+    const params: unknown[] = [carId, imageId];
+    let idx = 3;
+
+    if (data.is_primary !== undefined) { fields.push(`is_primary = $${idx++}`); params.push(data.is_primary); }
+    if (data.sort_order !== undefined) { fields.push(`sort_order = $${idx++}`); params.push(data.sort_order); }
+
+    if (fields.length === 0) {
+      const r = await pool.query('SELECT * FROM car_images WHERE car_id = $1 AND id = $2', [carId, imageId]);
+      return r.rows[0] || null;
+    }
+
+    if (data.is_primary) {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query(
+          'UPDATE car_images SET is_primary = false WHERE car_id = $1 AND is_primary = true AND id != $2',
+          [carId, imageId]
+        );
+        const result = await client.query(
+          `UPDATE car_images SET ${fields.join(', ')} WHERE car_id = $1 AND id = $2 RETURNING *`,
+          params
+        );
+        await client.query('COMMIT');
+        return result.rows[0] || null;
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      } finally {
+        client.release();
+      }
+    }
+
+    const result = await pool.query(
+      `UPDATE car_images SET ${fields.join(', ')} WHERE car_id = $1 AND id = $2 RETURNING *`,
+      params
+    );
+    return result.rows[0] || null;
+  },
+
+  async removeImage(carId: string, imageId: string): Promise<string | null> {
+    const result = await pool.query(
+      'DELETE FROM car_images WHERE car_id = $1 AND id = $2 RETURNING storage_path',
+      [carId, imageId]
+    );
+    return result.rows[0]?.storage_path ?? null;
+  },
+
   async updateStatus(id: string, status: string): Promise<Car | null> {
     const result = await pool.query(
       `UPDATE cars SET status = $1, updated_at = now() WHERE id = $2 RETURNING *`,

@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import { isAuthenticated, isAdminOrEmployee } from '../auth/middleware.js';
 import { validate, validateParams } from '../middleware/validate.js';
-import { createCarSchema, updateCarSchema, publishCarSchema, uuidParamSchema } from '../validation/schemas.js';
+import { createCarSchema, updateCarSchema, publishCarSchema, uuidParamSchema, updateCarImageSchema, carImageParamSchema } from '../validation/schemas.js';
 import { carsRepo } from '../db/repositories/cars.repo.js';
 import { getParam } from '../utils/params.js';
 import { upload } from '../middleware/upload.js';
-import { uploadImageBuffer } from '../utils/cloudinary.js';
+import { uploadImageBuffer, deleteImage, extractPublicId } from '../utils/cloudinary.js';
 import type { Request, Response } from 'express';
 
 const router = Router();
@@ -136,6 +136,43 @@ router.post('/:id/images', validateParams(uuidParamSchema), upload.single('image
       return;
     }
     console.error('Error adding car image:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.patch('/:id/images/:imageId', validateParams(carImageParamSchema), validate(updateCarImageSchema), async (req: Request, res: Response): Promise<void> => {
+  try {
+    const image = await carsRepo.updateImage(getParam(req, 'id'), getParam(req, 'imageId'), req.body);
+    if (!image) {
+      res.status(404).json({ error: 'Image not found', code: 'NOT_FOUND' });
+      return;
+    }
+    res.json(image);
+  } catch (err: any) {
+    if (err.code === '23505') {
+      res.status(409).json({ error: 'Sort order conflict', code: 'CONSTRAINT_VIOLATION' });
+      return;
+    }
+    console.error('Error updating car image:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.delete('/:id/images/:imageId', validateParams(carImageParamSchema), async (req: Request, res: Response): Promise<void> => {
+  try {
+    const storagePath = await carsRepo.removeImage(getParam(req, 'id'), getParam(req, 'imageId'));
+    if (!storagePath) {
+      res.status(404).json({ error: 'Image not found', code: 'NOT_FOUND' });
+      return;
+    }
+    try {
+      await deleteImage(extractPublicId(storagePath));
+    } catch (cloudErr) {
+      console.error('Cloudinary deletion failed (image removed from DB):', cloudErr);
+    }
+    res.json({ message: 'Image deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting car image:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

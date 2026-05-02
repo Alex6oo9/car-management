@@ -190,6 +190,18 @@ export const carDocumentParamSchema = z.object({
   id: z.string().uuid(),
 });
 
+// ── Car Image Schemas ──
+
+export const updateCarImageSchema = z.object({
+  is_primary: z.boolean().optional(),
+  sort_order: z.number().int().min(0).optional(),
+});
+
+export const carImageParamSchema = z.object({
+  id: z.string().uuid(),
+  imageId: z.string().uuid(),
+});
+
 // ── Query Schemas ──
 
 export const uuidParamSchema = z.object({

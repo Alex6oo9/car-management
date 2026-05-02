@@ -20,3 +20,10 @@ export async function uploadImageBuffer(
 export async function deleteImage(publicId: string): Promise<void> {
   await cloudinary.uploader.destroy(publicId);
 }
+
+// URL format: https://res.cloudinary.com/{cloud}/image/upload/v{version}/{folder}/{name}.{ext}
+export function extractPublicId(storageUrl: string): string {
+  const afterUpload = storageUrl.split('/upload/')[1];
+  const withoutVersion = afterUpload.replace(/^v\d+\//, '');
+  return withoutVersion.replace(/\.[^.]+$/, '');
+}
