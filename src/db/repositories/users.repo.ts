@@ -142,5 +142,50 @@ export const usersRepo = {
     const result = await pool.query('DELETE FROM users WHERE id = $1', [id]);
     return (result.rowCount ?? 0) > 0;
   },
-  
+
+  async getProfileById(id: string): Promise<Omit<User, 'password_hash' | 'google_id'> | null> {
+    const result = await pool.query(
+      `SELECT id, email, full_name, role, line_contact, phone,
+              is_active, is_email_verified, auth_provider, created_at, updated_at
+       FROM users WHERE id = $1`,
+      [id]
+    );
+    return result.rows[0] || null;
+  },
+
+  async updateProfile(
+    id: string,
+    data: { full_name?: string; line_contact?: string | null; phone?: string | null }
+  ): Promise<Omit<User, 'password_hash' | 'google_id'>> {
+    const allowedFields = ['full_name', 'line_contact', 'phone'];
+
+    const fields: string[] = [];
+    const params: unknown[] = [];
+    let paramIdx = 1;
+
+    for (const [key, value] of Object.entries(data)) {
+      if (allowedFields.includes(key) && value !== undefined) {
+        fields.push(`${key} = $${paramIdx++}`);
+        params.push(value);
+      }
+    }
+
+    if (fields.length === 0) {
+      const existing = await this.getProfileById(id);
+      if (!existing) throw new Error('User not found');
+      return existing;
+    }
+
+    fields.push(`updated_at = now()`);
+    params.push(id);
+
+    const result = await pool.query(
+      `UPDATE users SET ${fields.join(', ')} WHERE id = $${paramIdx}
+       RETURNING id, email, full_name, role, line_contact, phone,
+                 is_active, is_email_verified, auth_provider, created_at, updated_at`,
+      params
+    );
+    if (result.rows.length === 0) throw new Error('User not found');
+    return result.rows[0];
+  },
 };

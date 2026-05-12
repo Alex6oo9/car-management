@@ -10,6 +10,28 @@ export interface User {
   updated_at: Date;
   auth_provider: 'local' | 'google';
   google_id: string | null;
+  line_contact: string | null;
+  phone: string | null;
+}
+
+export interface DealerContact {
+  id: string;
+  showroom_name: string;
+  open_day_from: string | null;
+  open_day_to: string | null;
+  open_time_from: string | null;
+  open_time_to: string | null;
+  status: 'auto' | 'open' | 'closed';
+  phone_number: string | null;
+  line_contact: string | null;
+  facebook_url: string | null;
+  instagram_url: string | null;
+  gmail: string | null;
+  viber_contact: string | null;
+  wechat_contact: string | null;
+  map_url: string | null;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface Customer {
@@ -25,6 +47,16 @@ export interface Customer {
 }
 
 export type CarStatus = 'available' | 'reserved' | 'rented' | 'sold' | 'maintenance';
+
+export type CarBodyType =
+  | 'sedan'
+  | 'hatchback'
+  | 'suv'
+  | 'pickup_truck'
+  | 'van_minivan'
+  | 'electric'
+  | 'coupe'
+  | 'convertible';
 
 export interface Car {
   id: string;
@@ -44,6 +76,7 @@ export interface Car {
   engine: string | null;
   drive: 'fwd' | 'rwd' | 'awd' | '4wd' | null;
   seats: number | null;
+  body_type: CarBodyType | null;
   created_at: Date;
   updated_at: Date;
   created_by_user_id: string | null;

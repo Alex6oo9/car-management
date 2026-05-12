@@ -6,6 +6,7 @@ import { rentalsRepo } from '../db/repositories/rentals.repo.js';
 import { carsRepo } from '../db/repositories/cars.repo.js';
 import { customersRepo } from '../db/repositories/customers.repo.js';
 import { getParam } from '../utils/params.js';
+import { calculateRentalTotalPrice, snapshotPrice } from '../utils/rental.js';
 import type { Request, Response } from 'express';
 
 const router = Router();
@@ -45,12 +46,8 @@ router.post('/', validate(createRentalSchema), async (req: Request, res: Respons
       return;
     }
 
-    // Snapshot price and calculate total
-    const pricePerDay = parseFloat(String(car.rent_price_per_day ?? 0));
-    const startMs = new Date(start_date).getTime();
-    const endMs = new Date(end_date).getTime();
-    const days = Math.round((endMs - startMs) / (1000 * 60 * 60 * 24)) + 1; // inclusive
-    const totalPrice = days * pricePerDay;
+    const pricePerDay = snapshotPrice(parseFloat(String(car.rent_price_per_day ?? 0)));
+    const totalPrice = calculateRentalTotalPrice(start_date, end_date, pricePerDay);
 
     const rental = await rentalsRepo.create({
       car_id,

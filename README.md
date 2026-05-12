@@ -25,9 +25,11 @@ Backend REST API for managing a car showroom with rental and purchase workflows,
 - `pg` (raw SQL, parameterized)
 - Passport.js (`passport-local` + `passport-google-oauth20`) + `express-session` + `connect-pg-simple`
 - Zod validation
+- Cloudinary (image storage) + Multer (multipart file upload)
 - Resend (email delivery)
 - Pino + pino-http logging
 - Helmet, CORS, express-rate-limit
+- Jest + ts-jest (unit testing)
 
 ## Setup
 
@@ -45,6 +47,9 @@ Create a `.env` file in the project root:
 # Required
 DATABASE_URL=postgresql://user:password@localhost:5432/car_showroom
 SESSION_SECRET=your-secret-at-least-16-chars
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
 
 # Optional — defaults shown
 CORS_ORIGIN=http://localhost:3000
@@ -155,7 +160,7 @@ Hard delete protections:
 | Method | Endpoint | Description |
 |---|---|---|
 | GET | `/cars` | List published cars (with images) |
-| GET | `/cars/:id` | Get published car by ID (with images) |
+| GET | `/cars/:id` | Get published car by ID (with images and documents) |
 
 Query params for `GET /cars`: `brand`, `model`, `year_min`, `year_max`, `price_min`, `price_max`, `rent_price_min`, `rent_price_max`, `limit` (default 20), `offset` (default 0)
 
@@ -178,7 +183,9 @@ Query params for `GET /cars`: `brand`, `model`, `year_min`, `year_max`, `price_m
 | PATCH | `/admin/cars/:id` | Update car (including spec fields) |
 | DELETE | `/admin/cars/:id` | Delete car (blocked if linked to rentals/purchases) |
 | PATCH | `/admin/cars/:id/publish` | Publish / unpublish car listing |
-| POST | `/admin/cars/:id/images` | Add image `{ storage_path, is_primary, sort_order }` |
+| POST | `/admin/cars/:id/images` | Upload image — `multipart/form-data`, field name: `image`; optional fields: `is_primary`, `sort_order` |
+| PATCH | `/admin/cars/:id/images/:imageId` | Update image properties (`is_primary`, `sort_order`) |
+| DELETE | `/admin/cars/:id/images/:imageId` | Delete image (also removes file from Cloudinary) |
 
 ### Car Documents (Admin + Employee)
 
@@ -380,7 +387,7 @@ src/
 │   ├── migrate.ts         # Migration runner (reads SQL files in order)
 │   ├── cleanup.ts         # Deletes expired verification/reset tokens on startup
 │   ├── migrations/        # SQL migration files (001–014)
-│   ├── seeds/             # Admin seed script (admin@example.com / admin123)
+│   ├── seeds/             # admin.seed.ts (admin@example.com / admin123), clear-test-data.ts
 │   └── repositories/      # Data access layer (raw SQL, parameterized)
 │       ├── users.repo.ts
 │       ├── customers.repo.ts
@@ -396,7 +403,8 @@ src/
 ├── middleware/
 │   ├── validate.ts        # validate(schema) and validateParams(schema) wrappers
 │   ├── errorHandler.ts    # Global Express error handler
-│   └── rateLimit.ts       # Rate limiters for auth endpoints
+│   ├── rateLimit.ts       # Rate limiters for auth endpoints
+│   └── upload.ts          # Multer memory storage for image uploads
 ├── routes/
 │   ├── auth.routes.ts
 │   ├── admin.users.routes.ts
@@ -418,6 +426,7 @@ src/
 └── utils/
     ├── logger.ts          # Pino logger instance
     ├── tokens.ts          # generateToken(), hashToken() (SHA-256)
+    ├── cloudinary.ts      # uploadImageBuffer, deleteImage, extractPublicId
     └── params.ts          # getParam(req, name) — handles Express 5 string|string[]
 ```
 
@@ -426,6 +435,7 @@ src/
 ## Production Checklist
 
 - Set real `RESEND_API_KEY` and verified sender domain/email
+- Set `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` (required for image uploads)
 - Tighten `CORS_ORIGIN` to trusted frontend domain(s)
 - Ensure secure session cookie settings (`secure`, `sameSite`, `maxAge`) are correct for deployment architecture
 - Review rate limits for realistic production thresholds
@@ -454,4 +464,6 @@ npm run build     # Compile TypeScript → dist/
 npm start         # Run compiled server (node dist/server.js)
 npm run migrate   # Run all SQL migrations in order
 npm run seed      # Create admin@example.com / admin123
+npm run clear     # Clear test data (src/db/seeds/clear-test-data.ts)
+npm test          # Run Jest unit test suite (29 tests, no DB required)
 ```

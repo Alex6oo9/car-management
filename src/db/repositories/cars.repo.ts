@@ -34,6 +34,7 @@ export const carsRepo = {
     price_max?: number;
     rent_price_min?: number;
     rent_price_max?: number;
+    body_type?: string;
     limit?: number;
     offset?: number;
   } = {}): Promise<{ cars: (Car & { images: CarImage[] })[]; total: number }> {
@@ -73,6 +74,10 @@ export const carsRepo = {
       conditions.push(`rent_price_per_day <= $${paramIdx++}`);
       params.push(filters.rent_price_max);
     }
+    if (filters.body_type) {
+      conditions.push(`body_type = $${paramIdx++}`);
+      params.push(filters.body_type);
+    }
 
     const where = `WHERE ${conditions.join(' AND ')}`;
 
@@ -101,18 +106,31 @@ export const carsRepo = {
   },
 
   async findAllAdmin(filters: {
+    body_type?: string;
     limit?: number;
     offset?: number;
   } = {}): Promise<{ cars: (Car & { images: CarImage[] })[]; total: number }> {
-    const countResult = await pool.query('SELECT COUNT(*) FROM cars');
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+    let paramIdx = 1;
+
+    if (filters.body_type) {
+      conditions.push(`body_type = $${paramIdx++}`);
+      params.push(filters.body_type);
+    }
+
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const countResult = await pool.query(`SELECT COUNT(*) FROM cars ${where}`, params);
     const total = parseInt(countResult.rows[0].count, 10);
 
     const limit = filters.limit ?? 50;
     const offset = filters.offset ?? 0;
+    params.push(limit, offset);
 
     const carsResult = await pool.query(
-      'SELECT * FROM cars ORDER BY created_at DESC LIMIT $1 OFFSET $2',
-      [limit, offset]
+      `SELECT * FROM cars ${where} ORDER BY created_at DESC LIMIT $${paramIdx++} OFFSET $${paramIdx}`,
+      params
     );
 
     const cars = [];
@@ -144,11 +162,12 @@ export const carsRepo = {
     engine?: string;
     drive?: string;
     seats?: number;
+    body_type?: string;
     created_by_user_id?: string;
   }): Promise<Car> {
     const result = await pool.query(
-      `INSERT INTO cars (vin, brand, model, year, mileage_km, sale_price, rent_price_per_day, currency_code, status, is_published, fuel, transmission, color, engine, drive, seats, created_by_user_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+      `INSERT INTO cars (vin, brand, model, year, mileage_km, sale_price, rent_price_per_day, currency_code, status, is_published, fuel, transmission, color, engine, drive, seats, body_type, created_by_user_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
        RETURNING *`,
       [
         data.vin ?? null, data.brand, data.model, data.year,
@@ -157,6 +176,7 @@ export const carsRepo = {
         data.is_published ?? false,
         data.fuel ?? null, data.transmission ?? null, data.color ?? null,
         data.engine ?? null, data.drive ?? null, data.seats ?? null,
+        data.body_type ?? null,
         data.created_by_user_id ?? null,
       ]
     );
@@ -168,6 +188,7 @@ export const carsRepo = {
       'vin', 'brand', 'model', 'year', 'mileage_km', 'sale_price',
       'rent_price_per_day', 'currency_code', 'status', 'is_published',
       'fuel', 'transmission', 'color', 'engine', 'drive', 'seats',
+      'body_type',
     ];
 
     const fields: string[] = [];

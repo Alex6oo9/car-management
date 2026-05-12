@@ -3454,6 +3454,762 @@
         }
       ],
       "description": "Car document key-value management. All endpoints require admin or employee auth. Documents are included in GET /admin/cars/:id and also in the public GET /cars/:id endpoint."
+    },
+    {
+      "name": "15. Body Type (Car Category)",
+      "item": [
+        {
+          "name": "Set body_type on Car (Admin PATCH)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('body_type updated', () => pm.expect(pm.response.json().body_type).to.equal('suv'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body_type\": \"suv\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/cars/{{car_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "cars",
+                "{{car_id}}"
+              ]
+            },
+            "description": "Sets body_type for the test car. Valid values: sedan, hatchback, suv, pickup_truck, van_minivan, electric, coupe, convertible."
+          },
+          "response": []
+        },
+        {
+          "name": "Admin List Cars — Filter by body_type",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('All returned cars are SUVs', () => {",
+                  "  const cars = pm.response.json().cars;",
+                  "  cars.forEach(c => pm.expect(c.body_type).to.equal('suv'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/cars?body_type=suv",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "cars"
+              ],
+              "query": [
+                {
+                  "key": "body_type",
+                  "value": "suv"
+                }
+              ]
+            },
+            "description": "Lists admin cars filtered by the new body_type query param."
+          },
+          "response": []
+        },
+        {
+          "name": "Public List Cars — Filter by body_type",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Result has cars array', () => pm.expect(pm.response.json()).to.have.property('cars'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/cars?body_type=suv",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "cars"
+              ],
+              "query": [
+                {
+                  "key": "body_type",
+                  "value": "suv"
+                }
+              ]
+            },
+            "description": "Public listing filtered by body_type. Only published cars are returned."
+          },
+          "response": []
+        },
+        {
+          "name": "[400] Invalid body_type Rejected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('INVALID_BODY_TYPE code', () => pm.expect(pm.response.json().code).to.equal('INVALID_BODY_TYPE'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/cars?body_type=banana",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "cars"
+              ],
+              "query": [
+                {
+                  "key": "body_type",
+                  "value": "banana"
+                }
+              ]
+            },
+            "description": "Invalid body_type values return a 400 error with code INVALID_BODY_TYPE."
+          },
+          "response": []
+        },
+        {
+          "name": "Clear body_type (set to null)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('body_type cleared', () => pm.expect(pm.response.json().body_type).to.be.null);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body_type\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/cars/{{car_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "cars",
+                "{{car_id}}"
+              ]
+            },
+            "description": "Sending body_type: null clears the value. Useful when staff want to remove a category."
+          },
+          "response": []
+        }
+      ],
+      "description": "Tests the new body_type column on cars. ENUM values: sedan, hatchback, suv, pickup_truck, van_minivan, electric, coupe, convertible. Both public and admin list endpoints accept ?body_type=<value> for filtering."
+    },
+    {
+      "name": "16. Dealer Contact (Showroom Settings)",
+      "item": [
+        {
+          "name": "Public Get Dealer Contact",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has showroom_name', () => pm.expect(pm.response.json()).to.have.property('showroom_name'));",
+                  "pm.test('Has status field', () => pm.expect(['auto','open','closed']).to.include(pm.response.json().status));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/dealer-contact",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "dealer-contact"
+              ]
+            },
+            "description": "Public read of the singleton showroom contact row. No auth required. Used by the public website to render phone, hours, social links."
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Get Dealer Contact",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has all admin fields', () => {",
+                  "  const json = pm.response.json();",
+                  "  ['id','showroom_name','status','phone_number','line_contact','facebook_url','instagram_url','gmail','viber_contact','wechat_contact','map_url','open_day_from','open_day_to','open_time_from','open_time_to']",
+                  "    .forEach(k => pm.expect(json).to.have.property(k));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/dealer-contact",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "dealer-contact"
+              ]
+            },
+            "description": "Admin read of the dealer contact. Requires admin or employee auth."
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Update Dealer Contact (full)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('showroom_name updated', () => pm.expect(json.showroom_name).to.equal('BKK Kaung Pyae'));",
+                  "pm.test('phone_number saved', () => pm.expect(json.phone_number).to.equal('+66 81 234 5678'));",
+                  "pm.test('status set to open', () => pm.expect(json.status).to.equal('open'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"showroom_name\": \"BKK Kaung Pyae\",\n  \"open_day_from\": \"Monday\",\n  \"open_day_to\": \"Sunday\",\n  \"open_time_from\": \"9am\",\n  \"open_time_to\": \"6pm\",\n  \"status\": \"open\",\n  \"phone_number\": \"+66 81 234 5678\",\n  \"line_contact\": \"@bkkkp\",\n  \"facebook_url\": \"https://facebook.com/bkkkp\",\n  \"instagram_url\": \"https://instagram.com/bkkkp\",\n  \"gmail\": \"bkkkp@gmail.com\",\n  \"viber_contact\": \"+66812345678\",\n  \"wechat_contact\": \"bkkkp_wechat\",\n  \"map_url\": \"https://maps.google.com/?q=BKK+Kaung+Pyae\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/dealer-contact",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "dealer-contact"
+              ]
+            },
+            "description": "Full update of every editable dealer contact field. All fields are optional in the schema, but here we send the full payload."
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Update Dealer Contact (partial)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('status flipped to auto', () => pm.expect(pm.response.json().status).to.equal('auto'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"auto\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/dealer-contact",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "dealer-contact"
+              ]
+            },
+            "description": "Demonstrates partial PATCH — only the fields included in the body are touched."
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Clear a Contact Field (null)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('wechat_contact cleared', () => pm.expect(pm.response.json().wechat_contact).to.be.null);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"wechat_contact\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/dealer-contact",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "dealer-contact"
+              ]
+            },
+            "description": "Sending null for any optional contact field clears it. Sending undefined (omitting the key) leaves it untouched."
+          },
+          "response": []
+        },
+        {
+          "name": "[400] Invalid status Rejected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"banana\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/dealer-contact",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "dealer-contact"
+              ]
+            },
+            "description": "Status must be one of: auto, open, closed. Any other value fails Zod validation."
+          },
+          "response": []
+        }
+      ],
+      "description": "Singleton dealer-contact settings table. Public GET /dealer-contact powers the website's contact section. Admin GET/PATCH /admin/dealer-contact powers the showroom settings screen. Migration 016 seeds exactly one row with showroom_name = 'BKK Kaung Pyae'."
+    },
+    {
+      "name": "17. Profile (Authenticated User Self)",
+      "item": [
+        {
+          "name": "Get My Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Has safe fields', () => {",
+                  "  ['id','email','full_name','role','line_contact','phone','is_email_verified','created_at','updated_at']",
+                  "    .forEach(k => pm.expect(json).to.have.property(k));",
+                  "});",
+                  "pm.test('No password_hash leaked', () => pm.expect(json).to.not.have.property('password_hash'));",
+                  "pm.test('No google_id leaked', () => pm.expect(json).to.not.have.property('google_id'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/profile",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "profile"
+              ]
+            },
+            "description": "Returns the currently logged-in user's profile. Works for admin, employee, or client. The user id is always taken from the session — never from the URL or body."
+          },
+          "response": []
+        },
+        {
+          "name": "Update My Profile (full_name + line + phone)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('full_name updated', () => pm.expect(json.full_name).to.equal('Showroom Admin'));",
+                  "pm.test('line_contact saved', () => pm.expect(json.line_contact).to.equal('@admin_bkkkp'));",
+                  "pm.test('phone saved', () => pm.expect(json.phone).to.equal('+66 81 000 0001'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Showroom Admin\",\n  \"line_contact\": \"@admin_bkkkp\",\n  \"phone\": \"+66 81 000 0001\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/profile",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "profile"
+              ]
+            },
+            "description": "Updates the logged-in user's profile fields. Note that email, password, role, and is_active are NOT accepted here — those use separate flows."
+          },
+          "response": []
+        },
+        {
+          "name": "Update My Profile (partial)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('only line_contact changed', () => pm.expect(pm.response.json().line_contact).to.equal('@new_line_id'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"line_contact\": \"@new_line_id\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/profile",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "profile"
+              ]
+            },
+            "description": "Partial PATCH — only line_contact changes; full_name and phone remain as before."
+          },
+          "response": []
+        },
+        {
+          "name": "Clear phone (null)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('phone is null', () => pm.expect(pm.response.json().phone).to.be.null);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/profile",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "profile"
+              ]
+            },
+            "description": "Send null to clear an optional field."
+          },
+          "response": []
+        },
+        {
+          "name": "[400] Empty full_name Rejected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/profile",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "profile"
+              ]
+            },
+            "description": "full_name has min(1) — empty string fails Zod validation."
+          },
+          "response": []
+        },
+        {
+          "name": "[401] Unauthenticated Access Denied",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "",
+                "description": "Intentionally empty — the request should be made without the session cookie. In Postman, disable the cookie jar temporarily or use a fresh environment to reproduce."
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/profile",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "profile"
+              ]
+            },
+            "description": "Without a session cookie, GET /profile returns 401. To run this test cleanly: disable the cookie jar in Postman settings, or log out first via 10. Cleanup → Logout, then run this request."
+          },
+          "response": []
+        }
+      ],
+      "description": "Authenticated user's self-service profile endpoints. /profile is mounted with only isAuthenticated middleware — any logged-in user (admin, employee, or client) can view and edit their own row. The user id always comes from req.user (session), never from the request body or URL."
     }
   ],
   "event": [

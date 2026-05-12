@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { validateParams } from '../middleware/validate.js';
-import { uuidParamSchema } from '../validation/schemas.js';
+import { uuidParamSchema, carBodyTypeEnum } from '../validation/schemas.js';
 import { carsRepo } from '../db/repositories/cars.repo.js';
 import { getParam } from '../utils/params.js';
 import type { Request, Response } from 'express';
@@ -9,6 +9,16 @@ const router = Router();
 
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
+    let body_type: string | undefined;
+    if (req.query.body_type !== undefined) {
+      const parsed = carBodyTypeEnum.safeParse(req.query.body_type);
+      if (!parsed.success) {
+        res.status(400).json({ error: 'Invalid body_type', code: 'INVALID_BODY_TYPE' });
+        return;
+      }
+      body_type = parsed.data;
+    }
+
     const filters = {
       brand: req.query.brand as string | undefined,
       model: req.query.model as string | undefined,
@@ -18,6 +28,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
       price_max: req.query.price_max ? parseFloat(req.query.price_max as string) : undefined,
       rent_price_min: req.query.rent_price_min ? parseFloat(req.query.rent_price_min as string) : undefined,
       rent_price_max: req.query.rent_price_max ? parseFloat(req.query.rent_price_max as string) : undefined,
+      body_type,
       limit: req.query.limit ? parseInt(req.query.limit as string, 10) : undefined,
       offset: req.query.offset ? parseInt(req.query.offset as string, 10) : undefined,
     };

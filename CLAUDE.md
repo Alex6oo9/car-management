@@ -13,7 +13,7 @@
 | Framework | Express.js v5 |
 | Database | PostgreSQL 14+ |
 | DB Client | `pg` (raw SQL, parameterized queries, no ORM) |
-| Auth | Passport.js local strategy + express-session |
+| Auth | Passport.js local strategy + Google OAuth + express-session |
 | Session Storage | connect-pg-simple (PostgreSQL session table) |
 | Password Hashing | bcrypt (10 rounds) |
 | Input Validation | Zod |
@@ -21,6 +21,9 @@
 | CORS | cors middleware |
 | Rate Limiting | express-rate-limit |
 | Logging | Pino + pino-http |
+| Image Storage | Cloudinary (via multer buffer upload) |
+| Email | Resend (via `src/services/email.ts`) |
+| Testing | Jest + ts-jest (ESM-compatible, pure unit tests) |
 
 **Module system**: `"type": "module"` in package.json — all imports must use `.js` extensions.
 
@@ -30,13 +33,14 @@
 
 ```
 src/
-├── server.ts                        # Entry point — creates app, starts listener
-├── app.ts                           # Express app factory — mounts all middleware & routes
+├── server.ts                            # Entry point — creates app, starts listener
+├── app.ts                               # Express app factory — mounts all middleware & routes
 ├── config/
-│   └── env.ts                       # Zod-validated env vars (fails fast on bad config)
+│   └── env.ts                           # Zod-validated env vars (fails fast on bad config)
 ├── db/
-│   ├── pool.ts                      # PostgreSQL connection pool (singleton)
-│   ├── migrate.ts                   # Migration runner (reads & executes SQL files in order)
+│   ├── pool.ts                          # PostgreSQL connection pool (singleton)
+│   ├── migrate.ts                       # Migration runner (reads & executes SQL files in order)
+│   ├── cleanup.ts                       # Database cleanup utility
 │   ├── migrations/
 │   │   ├── 001_create_users.sql
 │   │   ├── 002_create_customers.sql
@@ -44,39 +48,63 @@ src/
 │   │   ├── 004_create_car_images.sql
 │   │   ├── 005_create_rentals.sql
 │   │   ├── 006_create_purchases.sql
-│   │   └── 007_create_session.sql
+│   │   ├── 007_create_session.sql
+│   │   ├── 008_email_verification.sql
+│   │   ├── 009_add_client_role.sql
+│   │   ├── 010_password_reset_tokens.sql
+│   │   ├── 011_add_google_auth.sql
+│   │   ├── 012_add_car_spec_columns.sql
+│   │   ├── 013_create_rental_terms.sql
+│   │   └── 014_create_car_documents.sql
 │   ├── seeds/
-│   │   └── admin.seed.ts            # Seeds admin@example.com / admin123
+│   │   ├── admin.seed.ts                # Seeds admin@example.com / admin123
+│   │   └── clear-test-data.ts           # Clears test data (used by npm run clear)
 │   └── repositories/
 │       ├── users.repo.ts
 │       ├── customers.repo.ts
-│       ├── cars.repo.ts             # Also manages car_images
-│       ├── rentals.repo.ts          # Includes overlap check + status transitions
-│       └── purchases.repo.ts        # Includes atomic paid→sold transaction
+│       ├── cars.repo.ts                 # Also manages car_images
+│       ├── car-documents.repo.ts        # CRUD for car_documents
+│       ├── rental-terms.repo.ts         # CRUD for rental_terms
+│       ├── rentals.repo.ts              # Includes overlap check + status transitions
+│       └── purchases.repo.ts            # Includes atomic paid→sold transaction
 ├── auth/
-│   ├── passport.ts                  # LocalStrategy config + serialize/deserialize
-│   ├── session.ts                   # express-session config with PgSession store
-│   └── middleware.ts                # isAuthenticated, isAdmin, isAdminOrEmployee
+│   ├── passport.ts                      # LocalStrategy + GoogleStrategy config + serialize/deserialize
+│   ├── session.ts                       # express-session config with PgSession store
+│   └── middleware.ts                    # isAuthenticated, isAdmin, isAdminOrEmployee
 ├── middleware/
-│   ├── validate.ts                  # validate(schema) and validateParams(schema) wrappers
-│   ├── errorHandler.ts              # Global Express error handler
-│   └── rateLimit.ts                 # loginRateLimit (10 req / 15 min)
+│   ├── validate.ts                      # validate(schema) and validateParams(schema) wrappers
+│   ├── errorHandler.ts                  # Global Express error handler
+│   ├── rateLimit.ts                     # loginRateLimit, registerRateLimit, forgotPasswordRateLimit, resendVerificationRateLimit
+│   └── upload.ts                        # Multer memory storage for image uploads
 ├── routes/
-│   ├── auth.routes.ts               # POST /auth/login, POST /auth/logout, GET /auth/me
-│   ├── admin.users.routes.ts        # /admin/users — admin only
-│   ├── admin.customers.routes.ts    # /admin/customers — admin + employee
-│   ├── admin.cars.routes.ts         # /admin/cars — admin + employee
-│   ├── admin.rentals.routes.ts      # /admin/rentals — admin + employee
-│   ├── admin.purchases.routes.ts    # /admin/purchases — admin + employee
-│   └── public.cars.routes.ts        # /cars — public (no auth)
+│   ├── auth.routes.ts                   # All auth endpoints (login, register, OAuth, password reset)
+│   ├── admin.users.routes.ts            # /admin/users — admin only
+│   ├── admin.customers.routes.ts        # /admin/customers — admin + employee
+│   ├── admin.cars.routes.ts             # /admin/cars — admin + employee
+│   ├── admin.car-documents.routes.ts    # /admin/cars/:carId/documents — admin + employee
+│   ├── admin.rental-terms.routes.ts     # /admin/rental-terms — admin + employee
+│   ├── admin.rentals.routes.ts          # /admin/rentals — admin + employee
+│   ├── admin.purchases.routes.ts        # /admin/purchases — admin + employee
+│   ├── public.cars.routes.ts            # /cars — public (no auth)
+│   └── public.rental-terms.routes.ts   # /rental-terms — public (no auth)
+├── services/
+│   └── email.ts                         # sendVerificationEmail, sendPasswordResetEmail
 ├── validation/
-│   └── schemas.ts                   # All Zod schemas (create/update for each resource)
+│   └── schemas.ts                       # All Zod schemas (create/update for each resource)
 ├── types/
-│   ├── models.ts                    # TypeScript interfaces for all DB entities
-│   └── express.d.ts                 # Augments Express.User with id, email, full_name, role
+│   ├── models.ts                        # TypeScript interfaces for all DB entities
+│   └── express.d.ts                     # Augments Express.User with id, email, full_name, role, is_email_verified
 └── utils/
-    ├── logger.ts                    # Pino logger instance
-    └── params.ts                    # getParam(req, name) — handles Express 5 string|string[]
+    ├── logger.ts                        # Pino logger instance
+    ├── params.ts                        # getParam(req, name) — handles Express 5 string|string[]
+    ├── cloudinary.ts                    # uploadImageBuffer, deleteImage, extractPublicId
+    ├── tokens.ts                        # generateToken(), hashToken() — SHA-256 for secure storage
+    └── rental.ts                        # isValidRentalTransition, calculateRentalTotalPrice, snapshotPrice
+
+jest.config.ts                           # Jest config — ESM-compatible ts-jest setup
+src/
+└── __tests__/
+    └── rental.test.ts                   # 29 unit tests: status transitions, price snapshot, total price
 ```
 
 ---
@@ -87,20 +115,37 @@ src/
 - **pino-http**: Import as `{ pinoHttp }` (named export), not default.
 - **`.js` extensions**: Required on all imports — TypeScript compiles to ESM.
 - **ENUM types** in migrations use `DO $$ BEGIN ... EXCEPTION WHEN duplicate_object THEN null; END $$` to be idempotent.
+- **Image upload**: `POST /admin/cars/:id/images` expects `multipart/form-data` (actual file), not JSON. Uses Multer memory storage → Cloudinary.
+- **Token security**: Tokens (email verification, password reset) are stored as SHA-256 hashes only — never plaintext.
+- **Email verification gate**: Login returns `403` if `is_email_verified = false`. Existing users set to verified by migration 008.
 
 ---
 
 ## Environment Variables
 
 ```bash
+# Required
 DATABASE_URL=postgresql://user:password@localhost:5432/CarShow
 SESSION_SECRET=at-least-16-characters
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+
+# Optional (have defaults)
 CORS_ORIGIN=http://localhost:3000
 PORT=5000
 NODE_ENV=development
+APP_URL=http://localhost:3000
+FROM_EMAIL=CarShow <onboarding@resend.dev>
+
+# Optional (features disabled if absent)
+RESEND_API_KEY=re_xxxx                         # emails sent as no-op if missing
+GOOGLE_CLIENT_ID=xxx.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=GOCSPX-xxx
+GOOGLE_CALLBACK_URL=http://localhost:5000/auth/google/callback
 ```
 
-Validated at startup via Zod in `src/config/env.ts`. Process exits immediately if any are missing/invalid.
+Validated at startup via Zod in `src/config/env.ts`. Process exits immediately if required vars are missing/invalid.
 
 ---
 
@@ -108,42 +153,82 @@ Validated at startup via Zod in `src/config/env.ts`. Process exits immediately i
 
 ### users
 ```sql
-id UUID PK, email TEXT UNIQUE, password_hash TEXT, full_name TEXT,
-role TEXT CHECK ('admin'|'employee'), is_active BOOLEAN, created_at, updated_at
+id UUID PK, email TEXT UNIQUE NOT NULL, password_hash TEXT (nullable for Google accounts),
+full_name TEXT NOT NULL, role TEXT CHECK ('admin'|'employee'|'client'),
+is_active BOOLEAN DEFAULT true, is_email_verified BOOLEAN DEFAULT false,
+auth_provider TEXT CHECK ('local'|'google') DEFAULT 'local',
+google_id TEXT (unique, nullable), created_at, updated_at
 ```
-- Only one admin (seeded). Admin cannot be deleted.
+- Only one admin (seeded). Admin cannot be deleted or have role changed.
 - Employees created via API can be soft-deleted (sets `is_active = false`).
+- Clients register themselves via `POST /auth/register`; can be promoted to employee.
+- Google users have `password_hash = NULL` and `auth_provider = 'google'`.
+
+### email_verification_tokens
+```sql
+id UUID PK, user_id UUID FK→users CASCADE,
+token_hash TEXT NOT NULL, expires_at TIMESTAMPTZ NOT NULL, created_at
+```
+- Token hashed (SHA-256) before storage. Raw token sent in email link only.
+- Expires in **24 hours**. Deleted on successful verification.
+
+### password_reset_tokens
+```sql
+id UUID PK, user_id UUID FK→users CASCADE,
+token_hash TEXT NOT NULL, expires_at TIMESTAMPTZ NOT NULL,
+used BOOLEAN DEFAULT false, created_at
+```
+- Token hashed (SHA-256) before storage. Expires in **1 hour**.
+- Marked `used = true` after a successful reset (not deleted, for audit).
+- All sessions destroyed after successful reset.
 
 ### customers
 ```sql
-id UUID PK, full_name TEXT, phone TEXT, email TEXT, address_line TEXT,
+id UUID PK, full_name TEXT NOT NULL, phone TEXT, email TEXT, address_line TEXT,
 city TEXT, country TEXT, created_at, updated_at
 CONSTRAINT check_contact_method: phone IS NOT NULL OR email IS NOT NULL
 ```
 
 ### cars
 ```sql
-id UUID PK, vin TEXT UNIQUE, brand TEXT, model TEXT, year INT,
-mileage_km INT, sale_price NUMERIC(12,2), rent_price_per_day NUMERIC(12,2),
+id UUID PK, vin TEXT UNIQUE, brand TEXT NOT NULL, model TEXT NOT NULL,
+year INT CHECK (1900..now+1), mileage_km INT DEFAULT 0,
+sale_price NUMERIC(12,2), rent_price_per_day NUMERIC(12,2),
 currency_code CHAR(3) DEFAULT 'THB', status car_status DEFAULT 'available',
-is_published BOOLEAN, created_at, updated_at, created_by_user_id UUID FK→users
+is_published BOOLEAN DEFAULT false,
+fuel TEXT CHECK ('petrol'|'diesel'|'electric'|'hybrid'|'plug-in hybrid'),
+transmission TEXT CHECK ('automatic'|'manual'|'cvt'),
+color TEXT, engine TEXT,
+drive TEXT CHECK ('fwd'|'rwd'|'awd'|'4wd'),
+seats INT CHECK (1..20),
+created_at, updated_at, created_by_user_id UUID FK→users SET NULL
 ```
 **car_status ENUM**: `available | reserved | rented | sold | maintenance`
 
 ### car_images
 ```sql
-id UUID PK, car_id UUID FK→cars CASCADE, storage_path TEXT,
-is_primary BOOLEAN, sort_order INT, created_at
+id UUID PK, car_id UUID FK→cars CASCADE, storage_path TEXT NOT NULL,
+is_primary BOOLEAN DEFAULT false, sort_order INT DEFAULT 0, created_at
 UNIQUE (car_id, sort_order)
-UNIQUE INDEX on (car_id) WHERE is_primary = true  -- enforces one primary per car
+UNIQUE INDEX on (car_id) WHERE is_primary = true  -- one primary per car
 ```
+`storage_path` stores the Cloudinary URL.
+
+### car_documents
+```sql
+id UUID PK, car_id UUID FK→cars CASCADE,
+field_name TEXT NOT NULL, field_value TEXT NOT NULL,
+sort_order INT DEFAULT 0,
+created_by_user_id UUID FK→users SET NULL, created_at, updated_at
+```
+Key-value pairs for arbitrary car specifications (e.g., registration number, insurance expiry).
 
 ### rentals
 ```sql
 id UUID PK, car_id UUID FK→cars RESTRICT, customer_id UUID FK→customers RESTRICT,
 start_date DATE, end_date DATE, price_per_day NUMERIC(12,2), total_price NUMERIC(12,2),
-deposit_amount NUMERIC(12,2), currency_code CHAR(3), status rental_status,
-cancelled_reason TEXT, created_at, updated_at, created_by_user_id UUID FK→users
+deposit_amount NUMERIC(12,2) DEFAULT 0, currency_code CHAR(3), status rental_status DEFAULT 'pending',
+cancelled_reason TEXT, created_at, updated_at, created_by_user_id UUID FK→users SET NULL
 CONSTRAINT check_dates: end_date >= start_date
 ```
 **rental_status ENUM**: `pending | confirmed | active | completed | cancelled`
@@ -151,11 +236,18 @@ CONSTRAINT check_dates: end_date >= start_date
 ### purchases
 ```sql
 id UUID PK, car_id UUID FK→cars RESTRICT, customer_id UUID FK→customers RESTRICT,
-sale_price NUMERIC(12,2), currency_code CHAR(3), status purchase_status,
-created_at, updated_at, created_by_user_id UUID FK→users
+sale_price NUMERIC(12,2) NOT NULL, currency_code CHAR(3), status purchase_status DEFAULT 'pending',
+created_at, updated_at, created_by_user_id UUID FK→users SET NULL
 UNIQUE INDEX on (car_id) WHERE status = 'paid'  -- one paid purchase per car
 ```
 **purchase_status ENUM**: `pending | paid | cancelled | refunded`
+
+### rental_terms
+```sql
+id UUID PK, title TEXT NOT NULL, description TEXT NOT NULL,
+is_active BOOLEAN DEFAULT true, sort_order INT DEFAULT 0,
+created_by_user_id UUID FK→users SET NULL, created_at, updated_at
+```
 
 ### session
 ```sql
@@ -167,12 +259,20 @@ Managed automatically by connect-pg-simple.
 
 ## Authentication Flow
 
-1. `POST /auth/login` with `{ email, password }` (rate limited: 10/15min)
-2. Passport LocalStrategy verifies email → bcrypt compare
-3. On success: session created in PostgreSQL `session` table, HttpOnly cookie sent
-4. All subsequent requests carry cookie → `req.isAuthenticated()` returns true
-5. `passport.deserializeUser` loads user from DB on each request
-6. `POST /auth/logout` destroys session
+### Local Auth
+1. `POST /auth/register` — creates user with `role='client'`, `is_email_verified=false`, sends verification email
+2. `GET /auth/verify-email?token=<raw>` — verifies token hash, sets `is_email_verified=true`
+3. `POST /auth/login` — Passport LocalStrategy checks bcrypt + `is_email_verified`; 403 if unverified
+4. Session created in PostgreSQL `session` table, HttpOnly cookie sent
+5. `POST /auth/logout` — destroys session
+
+### Google OAuth
+1. `GET /auth/google` — redirects to Google consent screen (must not already be authenticated)
+2. `GET /auth/google/callback` — Passport GoogleStrategy upserts user, redirects to `env.APP_URL`
+
+### Password Reset
+1. `POST /auth/forgot-password` — generates token, sends email (always responds with same message to prevent enumeration)
+2. `POST /auth/reset-password` — verifies token hash, updates password, marks `is_email_verified=true`, destroys all sessions
 
 **Middleware chain for protected routes**:
 ```
@@ -183,24 +283,33 @@ isAuthenticated → (isAdmin | isAdminOrEmployee) → route handler
 
 ## API Endpoints
 
-### Authentication (Public)
+### Authentication (Public/Guest)
 
 | Method | Path | Access | Description |
 |---|---|---|---|
-| POST | /auth/login | Public | Login, returns session cookie |
+| POST | /auth/register | Guest | Self-register as client, triggers verification email |
+| GET | /auth/verify-email | Public | Verify email via `?token=` query param |
+| POST | /auth/resend-verification | Public | Resend verification email |
+| POST | /auth/forgot-password | Public | Request password reset email |
+| POST | /auth/reset-password | Public | Complete password reset with token |
+| GET | /auth/google | Guest | Initiate Google OAuth |
+| GET | /auth/google/callback | Public | Google OAuth callback |
+| POST | /auth/login | Public | Login (rate limited: 100/15min) |
 | POST | /auth/logout | Authenticated | Destroy session |
 | GET | /auth/me | Authenticated | Get current user info |
 
-### Public Cars
+### Public Endpoints (No Auth)
 
 | Method | Path | Access | Description |
 |---|---|---|---|
 | GET | /cars | Public | List published cars (with images) |
-| GET | /cars/:id | Public | Get car by ID (with images) |
+| GET | /cars/:id | Public | Get car by ID (with images and documents) |
+| GET | /rental-terms | Public | List active rental terms |
+| GET | /health | Public | Health check (`{ status: 'ok', timestamp }`) |
 
 Query params for `GET /cars`: `brand`, `model`, `year_min`, `year_max`, `price_min`, `price_max`, `rent_price_min`, `rent_price_max`, `limit` (default 20), `offset` (default 0)
 
-### User Management
+### User Management (Admin only)
 
 | Method | Path | Access | Description |
 |---|---|---|---|
@@ -208,7 +317,9 @@ Query params for `GET /cars`: `brand`, `model`, `year_min`, `year_max`, `price_m
 | GET | /admin/users | Admin | List users (`?role=`, `?is_active=`) |
 | GET | /admin/users/:id | Admin | Get user by ID |
 | PATCH | /admin/users/:id | Admin | Update full_name, is_active |
-| DELETE | /admin/users/:id | Admin | Soft-delete (cannot delete admin) |
+| PATCH | /admin/users/:id/role | Admin | Promote client → employee only |
+| DELETE | /admin/users/:id | Admin | Soft-delete (sets is_active=false; cannot delete admin) |
+| DELETE | /admin/users/:id/hard | Admin | Hard delete (cannot delete admin or self) |
 
 ### Customers
 
@@ -225,11 +336,33 @@ Query params for `GET /cars`: `brand`, `model`, `year_min`, `year_max`, `price_m
 |---|---|---|---|
 | POST | /admin/cars | Admin+Employee | Create car |
 | GET | /admin/cars | Admin+Employee | List all cars (`?limit=`, `?offset=`) |
-| GET | /admin/cars/:id | Admin+Employee | Get by ID (with images) |
+| GET | /admin/cars/:id | Admin+Employee | Get by ID (with images + documents) |
 | PATCH | /admin/cars/:id | Admin+Employee | Update car |
 | DELETE | /admin/cars/:id | Admin+Employee | Delete (blocked if has rentals/purchases) |
-| PATCH | /admin/cars/:id/publish | Admin+Employee | `{ is_published: true|false }` |
-| POST | /admin/cars/:id/images | Admin+Employee | Add image `{ storage_path, is_primary, sort_order }` |
+| PATCH | /admin/cars/:id/publish | Admin+Employee | `{ is_published: true\|false }` |
+| POST | /admin/cars/:id/images | Admin+Employee | Upload image (`multipart/form-data`, field: `image`) |
+| PATCH | /admin/cars/:id/images/:imageId | Admin+Employee | Update image properties (is_primary, sort_order) |
+| DELETE | /admin/cars/:id/images/:imageId | Admin+Employee | Delete image (also removes from Cloudinary) |
+
+### Car Documents
+
+| Method | Path | Access | Description |
+|---|---|---|---|
+| POST | /admin/cars/:carId/documents | Admin+Employee | Add document field to car |
+| GET | /admin/cars/:carId/documents | Admin+Employee | List all documents for car |
+| GET | /admin/cars/:carId/documents/:id | Admin+Employee | Get document by ID |
+| PATCH | /admin/cars/:carId/documents/:id | Admin+Employee | Update document |
+| DELETE | /admin/cars/:carId/documents/:id | Admin+Employee | Delete document |
+
+### Rental Terms
+
+| Method | Path | Access | Description |
+|---|---|---|---|
+| POST | /admin/rental-terms | Admin+Employee | Create rental term |
+| GET | /admin/rental-terms | Admin+Employee | List all terms (`?is_active=true\|false`) |
+| GET | /admin/rental-terms/:id | Admin+Employee | Get by ID |
+| PATCH | /admin/rental-terms/:id | Admin+Employee | Update term |
+| DELETE | /admin/rental-terms/:id | Admin+Employee | Delete term |
 
 ### Rentals
 
@@ -252,6 +385,18 @@ Query params for `GET /cars`: `brand`, `model`, `year_min`, `year_max`, `price_m
 ---
 
 ## Business Rules
+
+### User Roles
+- `admin`: single seeded account; cannot be deleted, deactivated, or have role changed
+- `employee`: created by admin via API; can be soft-deleted
+- `client`: self-registers via `POST /auth/register`; can be promoted to employee via `PATCH /admin/users/:id/role`
+
+### Email Verification
+- New registrations (`/auth/register`) start with `is_email_verified = false`
+- Login blocked with `403` until email is verified
+- Verification token: 24-hour expiry, SHA-256 hashed in DB
+- Password reset auto-sets `is_email_verified = true`
+- Existing users before migration 008 are grandfathered in as verified
 
 ### Rental Date Overlap
 End date is **inclusive**. Overlap detected when:
@@ -298,10 +443,16 @@ Prices copied at transaction time:
 - Rental: `cars.rent_price_per_day` → `rentals.price_per_day`
 - Purchase: `cars.sale_price` → `purchases.sale_price`
 
-### User Management Rules
-- Admin creates employees only (role fixed to `'employee'` in schema)
-- Cannot delete admin account
-- Deletion is soft (sets `is_active = false`)
+---
+
+## Rate Limiting
+
+| Limiter | Window | Max Requests |
+|---|---|---|
+| loginRateLimit | 15 min | 100 |
+| registerRateLimit | 15 min | 100 |
+| forgotPasswordRateLimit | 1 hour | 100 |
+| resendVerificationRateLimit | 1 hour | 100 |
 
 ---
 
@@ -316,7 +467,7 @@ Prices copied at transaction time:
 Common HTTP codes used:
 - `400` Bad Request / validation error
 - `401` Unauthorized (not logged in)
-- `403` Forbidden (wrong role)
+- `403` Forbidden (wrong role, or email not verified)
 - `404` Not Found
 - `409` Conflict (date overlap, duplicate VIN, car already sold)
 - `500` Internal Server Error
@@ -331,6 +482,8 @@ npm run build     # tsc → dist/
 npm start         # node dist/server.js
 npm run migrate   # Run all SQL migrations in order
 npm run seed      # Create admin@example.com / admin123
+npm run clear     # Clear test data (src/db/seeds/clear-test-data.ts)
+npm test          # Run Jest unit test suite
 ```
 
 ---
@@ -346,7 +499,7 @@ psql -U postgres -c "CREATE DATABASE CarShow;"
 
 # 3. Configure environment
 cp .env.example .env
-# Edit .env with your DATABASE_URL
+# Edit .env with your DATABASE_URL and Cloudinary credentials
 
 # 4. Run migrations
 npm run migrate
@@ -361,6 +514,20 @@ npm run dev
 
 ---
 
+## Testing
+
+Unit tests live in `src/__tests__/`. They cover pure business logic with no database or mocking:
+
+| File | Suites | Tests |
+|---|---|---|
+| `rental.test.ts` | Status Transitions, Price Snapshotting, Total Price Calculation | 29 |
+
+Utility functions under test are in `src/utils/rental.ts`. Run with `npm test`.
+
+**Config**: `jest.config.ts` at project root uses `ts-jest/presets/default-esm` with `moduleNameMapper` to strip `.js` extensions (required for Node16 ESM resolution in Jest).
+
+---
+
 ## Adding New Features
 
 1. Add Zod schema to `src/validation/schemas.ts`
@@ -369,6 +536,7 @@ npm run dev
 4. Create route file in `src/routes/`
 5. Mount route in `src/app.ts`
 6. If new table: add migration to `src/db/migrations/` (next number in sequence)
+7. If new pure business logic: add utility function to `src/utils/` and a test in `src/__tests__/`
 
 All route handlers follow this pattern:
 ```typescript

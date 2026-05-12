@@ -75,6 +75,17 @@ export const hardDeleteUserSchema = z.object({
 
 // ── Car Schemas ──
 
+export const carBodyTypeEnum = z.enum([
+  'sedan',
+  'hatchback',
+  'suv',
+  'pickup_truck',
+  'van_minivan',
+  'electric',
+  'coupe',
+  'convertible',
+]);
+
 export const createCarSchema = z.object({
   vin: z.string().optional(),
   brand: z.string().min(1),
@@ -92,6 +103,7 @@ export const createCarSchema = z.object({
   engine: z.string().optional(),
   drive: z.enum(['fwd', 'rwd', 'awd', '4wd']).optional(),
   seats: z.number().int().min(1).max(20).optional(),
+  body_type: carBodyTypeEnum.optional(),
 });
 
 export const updateCarSchema = z.object({
@@ -111,6 +123,7 @@ export const updateCarSchema = z.object({
   engine: z.string().optional(),
   drive: z.enum(['fwd', 'rwd', 'awd', '4wd']).optional(),
   seats: z.number().int().min(1).max(20).optional(),
+  body_type: carBodyTypeEnum.nullable().optional(),
 });
 
 export const publishCarSchema = z.object({
@@ -206,4 +219,31 @@ export const carImageParamSchema = z.object({
 
 export const uuidParamSchema = z.object({
   id: z.string().uuid(),
+});
+
+// ── Dealer Contact Schemas ──
+
+export const updateDealerContactSchema = z.object({
+  showroom_name:  z.string().min(1).max(200).optional(),
+  open_day_from:  z.string().max(50).nullable().optional(),
+  open_day_to:    z.string().max(50).nullable().optional(),
+  open_time_from: z.string().max(50).nullable().optional(),
+  open_time_to:   z.string().max(50).nullable().optional(),
+  status:         z.enum(['auto', 'open', 'closed']).optional(),
+  phone_number:   z.string().max(500).nullable().optional(),
+  line_contact:   z.string().max(500).nullable().optional(),
+  facebook_url:   z.string().max(500).nullable().optional(),
+  instagram_url:  z.string().max(500).nullable().optional(),
+  gmail:          z.string().max(500).nullable().optional(),
+  viber_contact:  z.string().max(500).nullable().optional(),
+  wechat_contact: z.string().max(500).nullable().optional(),
+  map_url:        z.string().max(500).nullable().optional(),
+});
+
+// ── Profile Schemas ──
+
+export const updateProfileSchema = z.object({
+  full_name:    z.string().min(1).max(200).optional(),
+  line_contact: z.string().max(200).nullable().optional(),
+  phone:        z.string().max(50).nullable().optional(),
 });

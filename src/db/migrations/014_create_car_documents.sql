@@ -1,4 +1,4 @@
-CREATE TABLE car_documents (
+CREATE TABLE IF NOT EXISTS car_documents (
   id                 UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   car_id             UUID        NOT NULL REFERENCES cars(id) ON DELETE CASCADE,
   field_name         TEXT        NOT NULL,
@@ -9,4 +9,4 @@ CREATE TABLE car_documents (
   updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_car_documents_car_id ON car_documents(car_id);
+CREATE INDEX IF NOT EXISTS idx_car_documents_car_id ON car_documents(car_id);

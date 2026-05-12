@@ -9,7 +9,11 @@ async function seedAdmin() {
 
   const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
   if (existing.rows.length > 0) {
-    console.log('Admin user already exists, skipping seed.');
+    await pool.query(
+      `UPDATE users SET is_email_verified = TRUE WHERE email = $1 AND is_email_verified = FALSE`,
+      [email]
+    );
+    console.log('Admin user already exists. Ensured is_email_verified = true.');
     await pool.end();
     return;
   }
@@ -17,8 +21,8 @@ async function seedAdmin() {
   const passwordHash = await bcrypt.hash(password, 10);
 
   await pool.query(
-    `INSERT INTO users (email, password_hash, full_name, role)
-     VALUES ($1, $2, $3, $4)`,
+    `INSERT INTO users (email, password_hash, full_name, role, is_email_verified)
+     VALUES ($1, $2, $3, $4, TRUE)`,
     [email, passwordHash, fullName, role]
   );
 

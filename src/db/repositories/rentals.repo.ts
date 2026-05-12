@@ -1,13 +1,6 @@
 import { pool } from '../pool.js';
 import type { Rental } from '../../types/models.js';
-
-const VALID_TRANSITIONS: Record<string, string[]> = {
-  pending: ['confirmed', 'cancelled'],
-  confirmed: ['active', 'cancelled'],
-  active: ['completed', 'cancelled'],
-  completed: [],
-  cancelled: [],
-};
+import { isValidRentalTransition, type RentalStatus } from '../../utils/rental.js';
 
 export const rentalsRepo = {
   async checkOverlap(carId: string, startDate: string, endDate: string, excludeRentalId?: string): Promise<boolean> {
@@ -131,8 +124,7 @@ export const rentalsRepo = {
     const currentStatus = current.rows[0].status;
     const carId = current.rows[0].car_id;
 
-    const allowed = VALID_TRANSITIONS[currentStatus];
-    if (!allowed || !allowed.includes(status)) {
+    if (!isValidRentalTransition(currentStatus as RentalStatus, status as RentalStatus)) {
       return { rental: null, error: `Cannot transition from '${currentStatus}' to '${status}'` };
     }
 

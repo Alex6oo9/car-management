@@ -19,6 +19,9 @@ import adminRentalTermsRoutes from './routes/admin.rental-terms.routes.js';
 import adminCarDocumentsRoutes from './routes/admin.car-documents.routes.js';
 import publicCarsRoutes from './routes/public.cars.routes.js';
 import publicRentalTermsRoutes from './routes/public.rental-terms.routes.js';
+import publicDealerContactRoutes from './routes/public.dealer-contact.routes.js';
+import adminDealerContactRoutes from './routes/admin.dealer-contact.routes.js';
+import profileRoutes from './routes/profile.routes.js';
 
 export function createApp() {
   const app = express();
@@ -45,9 +48,13 @@ export function createApp() {
   // Public routes
   app.use('/cars', publicCarsRoutes);
   app.use('/rental-terms', publicRentalTermsRoutes);
+  app.use('/dealer-contact', publicDealerContactRoutes);
 
   // Auth routes
   app.use('/auth', authRoutes);
+
+  // Authenticated profile (any logged-in user)
+  app.use('/profile', profileRoutes);
 
   // Admin routes
   app.use('/admin/users', adminUsersRoutes);
@@ -57,6 +64,7 @@ export function createApp() {
   app.use('/admin/rentals', adminRentalsRoutes);
   app.use('/admin/purchases', adminPurchasesRoutes);
   app.use('/admin/rental-terms', adminRentalTermsRoutes);
+  app.use('/admin/dealer-contact', adminDealerContactRoutes);
 
   // Health check
   app.get('/health', (_req, res) => {

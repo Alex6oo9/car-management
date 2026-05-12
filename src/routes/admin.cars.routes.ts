@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { isAuthenticated, isAdminOrEmployee } from '../auth/middleware.js';
 import { validate, validateParams } from '../middleware/validate.js';
-import { createCarSchema, updateCarSchema, publishCarSchema, uuidParamSchema, updateCarImageSchema, carImageParamSchema } from '../validation/schemas.js';
+import { createCarSchema, updateCarSchema, publishCarSchema, uuidParamSchema, updateCarImageSchema, carImageParamSchema, carBodyTypeEnum } from '../validation/schemas.js';
 import { carsRepo } from '../db/repositories/cars.repo.js';
 import { getParam } from '../utils/params.js';
 import { upload } from '../middleware/upload.js';
@@ -31,9 +31,19 @@ router.post('/', validate(createCarSchema), async (req: Request, res: Response):
 
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
+    let body_type: string | undefined;
+    if (req.query.body_type !== undefined) {
+      const parsed = carBodyTypeEnum.safeParse(req.query.body_type);
+      if (!parsed.success) {
+        res.status(400).json({ error: 'Invalid body_type', code: 'INVALID_BODY_TYPE' });
+        return;
+      }
+      body_type = parsed.data;
+    }
+
     const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
     const offset = req.query.offset ? parseInt(req.query.offset as string, 10) : undefined;
-    const result = await carsRepo.findAllAdmin({ limit, offset });
+    const result = await carsRepo.findAllAdmin({ body_type, limit, offset });
     res.json(result);
   } catch (err) {
     console.error('Error listing cars:', err);
