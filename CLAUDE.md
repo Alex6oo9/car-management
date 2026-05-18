@@ -318,6 +318,7 @@ Query params for `GET /cars`: `brand`, `model`, `year_min`, `year_max`, `price_m
 | GET | /admin/users/:id | Admin | Get user by ID |
 | PATCH | /admin/users/:id | Admin | Update full_name, is_active |
 | PATCH | /admin/users/:id/role | Admin | Promote client → employee only |
+| PATCH | /admin/users/:id/role/demote | Admin | Demote employee → client (empty JSON body `{}`) |
 | DELETE | /admin/users/:id | Admin | Soft-delete (sets is_active=false; cannot delete admin) |
 | DELETE | /admin/users/:id/hard | Admin | Hard delete (cannot delete admin or self) |
 
@@ -388,7 +389,7 @@ Query params for `GET /cars`: `brand`, `model`, `year_min`, `year_max`, `price_m
 
 ### User Roles
 - `admin`: single seeded account; cannot be deleted, deactivated, or have role changed
-- `employee`: created by admin via API; can be soft-deleted
+- `employee`: created by admin via API; can be soft-deleted; can be demoted back to client via `PATCH /admin/users/:id/role/demote`
 - `client`: self-registers via `POST /auth/register`; can be promoted to employee via `PATCH /admin/users/:id/role`
 
 ### Email Verification

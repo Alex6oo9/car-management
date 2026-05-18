@@ -406,6 +406,39 @@
           "response": []
         },
         {
+          "name": "Demote Employee to Client",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/users/<copied-id>/role/demote",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "users",
+                "<copied-id>",
+                "role",
+                "demote"
+              ]
+            },
+            "description": "Demote an employee user back to client role. Admin only. Body must be empty `{}`. Returns 400 if target is not currently an employee, 403 if target is admin."
+          },
+          "response": []
+        },
+        {
           "name": "Hard Delete",
           "request": {
             "method": "DELETE",

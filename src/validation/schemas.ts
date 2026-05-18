@@ -18,6 +18,8 @@ export const updateUserRoleSchema = z.object({
   role: z.enum(['employee']),
 });
 
+export const demoteUserRoleSchema = z.object({}).strict();
+
 // ── Auth Schemas ──
 
 export const loginSchema = z.object({
