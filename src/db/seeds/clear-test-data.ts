@@ -5,6 +5,7 @@ async function clearTestData() {
   await pool.query('DELETE FROM purchases');
   await pool.query('DELETE FROM rentals');
   await pool.query('DELETE FROM rental_terms');
+  await pool.query('DELETE FROM feedback');
   // car_images and car_documents are CASCADE-deleted with cars
   await pool.query('DELETE FROM cars');
   await pool.query('DELETE FROM customers');
@@ -13,7 +14,7 @@ async function clearTestData() {
   await pool.query("DELETE FROM users WHERE role != 'admin'");
 
   console.log('Test data cleared.');
-  console.log('  Deleted: purchases, rentals, rental_terms, cars, customers, employees, clients');
+  console.log('  Deleted: purchases, rentals, rental_terms, feedback, cars, customers, employees, clients');
   console.log('  Kept: admin user, sessions, migrations');
   await pool.end();
 }

@@ -48,6 +48,8 @@ export interface Customer {
 
 export type CarStatus = 'available' | 'reserved' | 'rented' | 'sold' | 'maintenance';
 
+export type CarListingType = 'sale' | 'rent';
+
 export type CarBodyType =
   | 'sedan'
   | 'hatchback'
@@ -77,6 +79,7 @@ export interface Car {
   drive: 'fwd' | 'rwd' | 'awd' | '4wd' | null;
   seats: number | null;
   body_type: CarBodyType | null;
+  listing_type: CarListingType;
   created_at: Date;
   updated_at: Date;
   created_by_user_id: string | null;
@@ -131,6 +134,16 @@ export interface RentalTerm {
   is_active: boolean;
   sort_order: number;
   created_by_user_id: string | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface Feedback {
+  id: string;
+  stars: number;
+  name: string;
+  message: string;
+  is_approved: boolean;
   created_at: Date;
   updated_at: Date;
 }

@@ -29,6 +29,13 @@ router.post('/', validate(createPurchaseSchema), async (req: Request, res: Respo
       });
       return;
     }
+    if (car.listing_type !== 'sale') {
+      res.status(400).json({
+        error: 'Car is listed for rent, not for sale',
+        code: 'CAR_NOT_FOR_SALE',
+      });
+      return;
+    }
 
     // Validate customer exists
     const customer = await customersRepo.findById(customer_id);

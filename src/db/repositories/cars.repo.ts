@@ -106,6 +106,8 @@ export const carsRepo = {
   },
 
   async findAllAdmin(filters: {
+    status?: string;
+    listing_type?: string;
     body_type?: string;
     limit?: number;
     offset?: number;
@@ -114,6 +116,14 @@ export const carsRepo = {
     const params: unknown[] = [];
     let paramIdx = 1;
 
+    if (filters.status) {
+      conditions.push(`status = $${paramIdx++}`);
+      params.push(filters.status);
+    }
+    if (filters.listing_type) {
+      conditions.push(`listing_type = $${paramIdx++}`);
+      params.push(filters.listing_type);
+    }
     if (filters.body_type) {
       conditions.push(`body_type = $${paramIdx++}`);
       params.push(filters.body_type);
@@ -163,11 +173,12 @@ export const carsRepo = {
     drive?: string;
     seats?: number;
     body_type?: string;
+    listing_type?: string;
     created_by_user_id?: string;
   }): Promise<Car> {
     const result = await pool.query(
-      `INSERT INTO cars (vin, brand, model, year, mileage_km, sale_price, rent_price_per_day, currency_code, status, is_published, fuel, transmission, color, engine, drive, seats, body_type, created_by_user_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+      `INSERT INTO cars (vin, brand, model, year, mileage_km, sale_price, rent_price_per_day, currency_code, status, is_published, fuel, transmission, color, engine, drive, seats, body_type, listing_type, created_by_user_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
        RETURNING *`,
       [
         data.vin ?? null, data.brand, data.model, data.year,
@@ -177,6 +188,7 @@ export const carsRepo = {
         data.fuel ?? null, data.transmission ?? null, data.color ?? null,
         data.engine ?? null, data.drive ?? null, data.seats ?? null,
         data.body_type ?? null,
+        data.listing_type ?? 'sale',
         data.created_by_user_id ?? null,
       ]
     );
@@ -188,7 +200,7 @@ export const carsRepo = {
       'vin', 'brand', 'model', 'year', 'mileage_km', 'sale_price',
       'rent_price_per_day', 'currency_code', 'status', 'is_published',
       'fuel', 'transmission', 'color', 'engine', 'drive', 'seats',
-      'body_type',
+      'body_type', 'listing_type',
     ];
 
     const fields: string[] = [];
@@ -329,5 +341,38 @@ export const carsRepo = {
       [status, id]
     );
     return result.rows[0] || null;
+  },
+
+  async getDashboardStats(): Promise<{
+    available_sale: number;
+    available_rental: number;
+    unavailable_sale: number;
+    unavailable_rental: number;
+    total_sold: number;
+    active_rentals: number;
+  }> {
+    const carStats = await pool.query(
+      `SELECT
+         COUNT(*) FILTER (WHERE status = 'available' AND listing_type = 'sale') AS available_sale,
+         COUNT(*) FILTER (WHERE status = 'available' AND listing_type = 'rent') AS available_rental,
+         COUNT(*) FILTER (WHERE status IN ('sold', 'reserved'))                 AS unavailable_sale,
+         COUNT(*) FILTER (WHERE status IN ('rented', 'maintenance'))            AS unavailable_rental,
+         COUNT(*) FILTER (WHERE status = 'sold')                                AS total_sold
+       FROM cars`
+    );
+
+    const rentalStats = await pool.query(
+      `SELECT COUNT(*) AS active_rentals FROM rentals WHERE status = 'active'`
+    );
+
+    const c = carStats.rows[0];
+    return {
+      available_sale: parseInt(c.available_sale, 10),
+      available_rental: parseInt(c.available_rental, 10),
+      unavailable_sale: parseInt(c.unavailable_sale, 10),
+      unavailable_rental: parseInt(c.unavailable_rental, 10),
+      total_sold: parseInt(c.total_sold, 10),
+      active_rentals: parseInt(rentalStats.rows[0].active_rentals, 10),
+    };
   },
 };

@@ -55,18 +55,25 @@ src/
 │   │   ├── 011_add_google_auth.sql
 │   │   ├── 012_add_car_spec_columns.sql
 │   │   ├── 013_create_rental_terms.sql
-│   │   └── 014_create_car_documents.sql
+│   │   ├── 014_create_car_documents.sql
+│   │   ├── 015_add_body_type_to_cars.sql
+│   │   ├── 016_create_dealer_contacts.sql
+│   │   ├── 017_add_profile_fields_to_users.sql
+│   │   ├── 018_add_listing_type_to_cars.sql
+│   │   └── 019_create_feedback.sql
 │   ├── seeds/
 │   │   ├── admin.seed.ts                # Seeds admin@example.com / admin123
 │   │   └── clear-test-data.ts           # Clears test data (used by npm run clear)
 │   └── repositories/
 │       ├── users.repo.ts
 │       ├── customers.repo.ts
-│       ├── cars.repo.ts                 # Also manages car_images
+│       ├── cars.repo.ts                 # Also manages car_images; getDashboardStats()
 │       ├── car-documents.repo.ts        # CRUD for car_documents
 │       ├── rental-terms.repo.ts         # CRUD for rental_terms
 │       ├── rentals.repo.ts              # Includes overlap check + status transitions
-│       └── purchases.repo.ts            # Includes atomic paid→sold transaction
+│       ├── purchases.repo.ts            # Includes atomic paid→sold transaction
+│       ├── dealer-contacts.repo.ts      # Single-row showroom contact info (get/update)
+│       └── feedback.repo.ts             # Customer feedback (public submit, admin moderation)
 ├── auth/
 │   ├── passport.ts                      # LocalStrategy + GoogleStrategy config + serialize/deserialize
 │   ├── session.ts                       # express-session config with PgSession store
@@ -85,8 +92,13 @@ src/
 │   ├── admin.rental-terms.routes.ts     # /admin/rental-terms — admin + employee
 │   ├── admin.rentals.routes.ts          # /admin/rentals — admin + employee
 │   ├── admin.purchases.routes.ts        # /admin/purchases — admin + employee
+│   ├── admin.dealer-contact.routes.ts   # /admin/dealer-contact — admin + employee
+│   ├── admin.feedback.routes.ts         # /admin/feedback — admin + employee (moderation)
+│   ├── profile.routes.ts                # /profile — any authenticated user
 │   ├── public.cars.routes.ts            # /cars — public (no auth)
-│   └── public.rental-terms.routes.ts   # /rental-terms — public (no auth)
+│   ├── public.rental-terms.routes.ts    # /rental-terms — public (no auth)
+│   ├── public.dealer-contact.routes.ts  # /dealer-contact — public (no auth)
+│   └── public.feedback.routes.ts        # /feedback — public (list + submit)
 ├── services/
 │   └── email.ts                         # sendVerificationEmail, sendPasswordResetEmail
 ├── validation/
@@ -157,7 +169,9 @@ id UUID PK, email TEXT UNIQUE NOT NULL, password_hash TEXT (nullable for Google 
 full_name TEXT NOT NULL, role TEXT CHECK ('admin'|'employee'|'client'),
 is_active BOOLEAN DEFAULT true, is_email_verified BOOLEAN DEFAULT false,
 auth_provider TEXT CHECK ('local'|'google') DEFAULT 'local',
-google_id TEXT (unique, nullable), created_at, updated_at
+google_id TEXT (unique, nullable),
+line_contact TEXT (nullable), phone TEXT (nullable),
+created_at, updated_at
 ```
 - Only one admin (seeded). Admin cannot be deleted or have role changed.
 - Employees created via API can be soft-deleted (sets `is_active = false`).
@@ -201,9 +215,13 @@ transmission TEXT CHECK ('automatic'|'manual'|'cvt'),
 color TEXT, engine TEXT,
 drive TEXT CHECK ('fwd'|'rwd'|'awd'|'4wd'),
 seats INT CHECK (1..20),
+body_type car_body_type (nullable),
+listing_type car_listing_type NOT NULL DEFAULT 'sale',
 created_at, updated_at, created_by_user_id UUID FK→users SET NULL
 ```
 **car_status ENUM**: `available | reserved | rented | sold | maintenance`
+**car_body_type ENUM**: `sedan | hatchback | suv | pickup_truck | van_minivan | electric | coupe | convertible`
+**car_listing_type ENUM**: `sale | rent` — a car is strictly for sale OR for rent (not both). Purchases are rejected for `rent` cars (`CAR_NOT_FOR_SALE`); rentals are rejected for `sale` cars (`CAR_NOT_FOR_RENT`). Dashboard stats split the available bucket by `listing_type`.
 
 ### car_images
 ```sql
@@ -248,6 +266,31 @@ id UUID PK, title TEXT NOT NULL, description TEXT NOT NULL,
 is_active BOOLEAN DEFAULT true, sort_order INT DEFAULT 0,
 created_by_user_id UUID FK→users SET NULL, created_at, updated_at
 ```
+
+### dealer_contacts
+```sql
+id UUID PK, showroom_name TEXT NOT NULL DEFAULT 'BKK Kaung Pyae',
+open_day_from TEXT, open_day_to TEXT, open_time_from TEXT, open_time_to TEXT,
+status TEXT CHECK ('auto'|'open'|'closed') DEFAULT 'auto',
+phone_number TEXT, line_contact TEXT, facebook_url TEXT, instagram_url TEXT,
+gmail TEXT, viber_contact TEXT, wechat_contact TEXT, map_url TEXT,
+created_at, updated_at
+```
+- **Single-row** table — one showroom contact record, seeded on migration. The repo always reads/updates that one row (no create/delete endpoints).
+- `status = 'auto'` means open/closed is derived from the open day/time fields; `'open'`/`'closed'` force it.
+
+### feedback
+```sql
+id UUID PK, stars INT NOT NULL CHECK (1..5),
+name TEXT NOT NULL DEFAULT 'Anonymous', message TEXT NOT NULL,
+is_approved BOOLEAN NOT NULL DEFAULT false,
+created_at, updated_at
+```
+- Standalone homepage testimonials — **no car/customer relation**.
+- **Public submit** (`POST /feedback`, no login): rate-limited (`feedbackRateLimit`, 5/hour per IP) and starts `is_approved = false` (hidden until an admin approves).
+- **`name` is server-derived**, never from the request body: logged-in submitter → their `users.full_name`; guest → `'Anonymous'`.
+- Public list (`GET /feedback`) returns only `is_approved = true`, newest-first, `?limit=`/`?offset=`.
+- Admins moderate only (list-all, approve/hide via `PATCH /:id/status`, delete) — they don't edit the customer's words.
 
 ### session
 ```sql
@@ -305,9 +348,19 @@ isAuthenticated → (isAdmin | isAdminOrEmployee) → route handler
 | GET | /cars | Public | List published cars (with images) |
 | GET | /cars/:id | Public | Get car by ID (with images and documents) |
 | GET | /rental-terms | Public | List active rental terms |
+| GET | /dealer-contact | Public | Showroom contact info (phone, LINE, social, hours) |
+| GET | /feedback | Public | List approved feedback, newest first (`?limit=`, `?offset=`) |
+| POST | /feedback | Public | Submit feedback (`{ stars, message }`; rate-limited 5/hr; starts unapproved; name from session or 'Anonymous') |
 | GET | /health | Public | Health check (`{ status: 'ok', timestamp }`) |
 
-Query params for `GET /cars`: `brand`, `model`, `year_min`, `year_max`, `price_min`, `price_max`, `rent_price_min`, `rent_price_max`, `limit` (default 20), `offset` (default 0)
+Query params for `GET /cars`: `brand`, `model`, `year_min`, `year_max`, `price_min`, `price_max`, `rent_price_min`, `rent_price_max`, `body_type`, `limit` (default 20), `offset` (default 0)
+
+### Authenticated (Any Logged-in User)
+
+| Method | Path | Access | Description |
+|---|---|---|---|
+| GET | /profile | Authenticated | Get own profile (full_name, email, role, line_contact, phone, …) |
+| PATCH | /profile | Authenticated | Update own `full_name`, `line_contact`, `phone` |
 
 ### User Management (Admin only)
 
@@ -336,7 +389,8 @@ Query params for `GET /cars`: `brand`, `model`, `year_min`, `year_max`, `price_m
 | Method | Path | Access | Description |
 |---|---|---|---|
 | POST | /admin/cars | Admin+Employee | Create car |
-| GET | /admin/cars | Admin+Employee | List all cars (`?limit=`, `?offset=`) |
+| GET | /admin/cars/stats | Admin+Employee | Dashboard counts (available/unavailable sale & rental, total sold, active rentals) |
+| GET | /admin/cars | Admin+Employee | List all cars (`?status=`, `?listing_type=`, `?body_type=`, `?limit=`, `?offset=`) |
 | GET | /admin/cars/:id | Admin+Employee | Get by ID (with images + documents) |
 | PATCH | /admin/cars/:id | Admin+Employee | Update car |
 | DELETE | /admin/cars/:id | Admin+Employee | Delete (blocked if has rentals/purchases) |
@@ -382,6 +436,22 @@ Query params for `GET /cars`: `brand`, `model`, `year_min`, `year_max`, `price_m
 | GET | /admin/purchases | Admin+Employee | List (`?car_id=`, `?customer_id=`, `?status=`) |
 | GET | /admin/purchases/:id | Admin+Employee | Get by ID (with car + customer info) |
 | PATCH | /admin/purchases/:id/status | Admin+Employee | Update status |
+
+### Dealer Contact
+
+| Method | Path | Access | Description |
+|---|---|---|---|
+| GET | /admin/dealer-contact | Admin+Employee | Get the showroom contact record |
+| PATCH | /admin/dealer-contact | Admin+Employee | Update showroom contact/hours (single-row, partial update) |
+
+### Feedback (Admin)
+
+| Method | Path | Access | Description |
+|---|---|---|---|
+| GET | /admin/feedback | Admin+Employee | List all feedback (`?is_approved=true\|false`), newest first |
+| GET | /admin/feedback/:id | Admin+Employee | Get feedback by ID |
+| PATCH | /admin/feedback/:id/status | Admin+Employee | Approve/hide (`{ is_approved: true\|false }`) |
+| DELETE | /admin/feedback/:id | Admin+Employee | Delete feedback |
 
 ---
 
@@ -435,14 +505,25 @@ refunded → (final)
 Side effect:
 - `paid` → sets `cars.status = 'sold'` **atomically** in same PostgreSQL transaction
 
+### Listing Type (sale vs rent)
+- Each car has a `listing_type` of `'sale'` or `'rent'` — strictly one, never both. Defaults to `'sale'`.
+- **Purchase** of a `rent` car is rejected: `400 { code: 'CAR_NOT_FOR_SALE' }`.
+- **Rental** of a `sale` car is rejected: `400 { code: 'CAR_NOT_FOR_RENT' }`.
+- The admin dashboard stats (`GET /admin/cars/stats`) split the "available" bucket by `listing_type` (not by which price field is set), so sale/rental counts never overlap.
+
 ### Car Availability
-- **For rent**: `cars.status = 'available'` AND no overlapping rentals
-- **For purchase**: `cars.status = 'available'` (strictly, not rented/sold/maintenance)
+- **For rent**: `cars.status = 'available'` AND `listing_type = 'rent'` AND no overlapping rentals
+- **For purchase**: `cars.status = 'available'` AND `listing_type = 'sale'` (strictly, not rented/sold/maintenance)
 
 ### Price Snapshotting
 Prices copied at transaction time:
 - Rental: `cars.rent_price_per_day` → `rentals.price_per_day`
 - Purchase: `cars.sale_price` → `purchases.sale_price`
+
+### Customer Feedback (homepage testimonials)
+- Anyone can submit via `POST /feedback` (no login). Three abuse defenses: **approval gate** (new feedback `is_approved = false`, hidden until an admin approves), **per-IP rate limit** (`feedbackRateLimit`, 5/hour), and **validation** (stars 1–5, message 5–1000 chars).
+- The display `name` is **server-derived**: logged-in → account `full_name`; guest → `'Anonymous'`. The request body cannot set the name (anti-impersonation).
+- Admins moderate (approve/hide/delete) but do not edit the customer's words.
 
 ---
 
@@ -454,6 +535,7 @@ Prices copied at transaction time:
 | registerRateLimit | 15 min | 100 |
 | forgotPasswordRateLimit | 1 hour | 100 |
 | resendVerificationRateLimit | 1 hour | 100 |
+| feedbackRateLimit | 15 min | 100 (loosened for testing; restore to 5/hr before production) |
 
 ---
 
@@ -466,7 +548,7 @@ Prices copied at transaction time:
 ```
 
 Common HTTP codes used:
-- `400` Bad Request / validation error
+- `400` Bad Request / validation error (incl. `CAR_NOT_FOR_SALE`, `CAR_NOT_FOR_RENT`, `INVALID_STATUS`, `INVALID_LISTING_TYPE`, `INVALID_BODY_TYPE`)
 - `401` Unauthorized (not logged in)
 - `403` Forbidden (wrong role, or email not verified)
 - `404` Not Found

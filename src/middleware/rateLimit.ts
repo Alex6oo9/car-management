@@ -31,3 +31,11 @@ export const resendVerificationRateLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+export const feedbackRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes (loosened for testing)
+  max: 100,
+  message: { error: 'Too many feedback submissions, please try again later', code: 'RATE_LIMITED' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});

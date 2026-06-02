@@ -720,7 +720,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"vin\": \"JT2BF22K1W0123456\",\n  \"brand\": \"Toyota\",\n  \"model\": \"Camry\",\n  \"year\": 2022,\n  \"mileage_km\": 25000,\n  \"sale_price\": 850000,\n  \"rent_price_per_day\": 2000,\n  \"currency_code\": \"THB\",\n  \"status\": \"available\",\n  \"is_published\": false\n}",
+              "raw": "{\n  \"vin\": \"JT2BF22K1W0123456\",\n  \"brand\": \"Toyota\",\n  \"model\": \"Camry\",\n  \"year\": 2022,\n  \"mileage_km\": 25000,\n  \"sale_price\": 850000,\n  \"rent_price_per_day\": 2000,\n  \"currency_code\": \"THB\",\n  \"status\": \"available\",\n  \"is_published\": false,\n  \"listing_type\": \"rent\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -768,7 +768,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"vin\": \"1HGBH41JXMN109186\",\n  \"brand\": \"Honda\",\n  \"model\": \"Civic\",\n  \"year\": 2021,\n  \"mileage_km\": 30000,\n  \"sale_price\": 650000,\n  \"rent_price_per_day\": 1500,\n  \"currency_code\": \"THB\",\n  \"status\": \"available\",\n  \"is_published\": false\n}",
+              "raw": "{\n  \"vin\": \"1HGBH41JXMN109186\",\n  \"brand\": \"Honda\",\n  \"model\": \"Civic\",\n  \"year\": 2021,\n  \"mileage_km\": 30000,\n  \"sale_price\": 650000,\n  \"rent_price_per_day\": 1500,\n  \"currency_code\": \"THB\",\n  \"status\": \"available\",\n  \"is_published\": false,\n  \"listing_type\": \"sale\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -831,6 +831,172 @@
               ]
             },
             "description": "Returns all cars regardless of is_published status. Admin view."
+          },
+          "response": []
+        },
+        {
+          "name": "Dashboard Stats",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "['available_sale','available_rental','unavailable_sale','unavailable_rental','total_sold','active_rentals'].forEach(k => {",
+                  "  pm.test('Has numeric ' + k, () => pm.expect(json[k]).to.be.a('number'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/cars/stats",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "cars",
+                "stats"
+              ]
+            },
+            "description": "Dashboard summary counts for the admin overview: available_sale, available_rental, unavailable_sale (sold/reserved), unavailable_rental (rented/maintenance), total_sold, active_rentals. Admin + employee."
+          },
+          "response": []
+        },
+        {
+          "name": "List Cars — Filter by Status (sold)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('All cars are sold', () => json.cars.forEach(c => pm.expect(c.status).to.equal('sold')));",
+                  "pm.test('Each car has images array', () => json.cars.forEach(c => pm.expect(c).to.have.property('images')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/cars?status=sold&limit=100",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "cars"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "sold"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            },
+            "description": "Sold-cars gallery source. Returns only cars with status='sold', each with its images array (primary image is the one with is_primary=true)."
+          },
+          "response": []
+        },
+        {
+          "name": "List Cars — Filter by Status (rented)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('All cars are rented', () => json.cars.forEach(c => pm.expect(c.status).to.equal('rented')));",
+                  "pm.test('Each car has images array', () => json.cars.forEach(c => pm.expect(c).to.have.property('images')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/cars?status=rented&limit=100",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "cars"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "rented"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            },
+            "description": "Rented-cars gallery source. Returns only cars with status='rented', each with its images array."
+          },
+          "response": []
+        },
+        {
+          "name": "List Cars — Invalid Status (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code INVALID_STATUS', () => pm.expect(pm.response.json().code).to.equal('INVALID_STATUS'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/cars?status=bogus",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "cars"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "bogus"
+                }
+              ]
+            },
+            "description": "An unknown status value is rejected with 400 INVALID_STATUS."
           },
           "response": []
         },
@@ -1813,6 +1979,53 @@
               ]
             },
             "description": "Creates purchase for the Honda Civic. Snapshots sale_price from cars table. Saves purchase_id."
+          },
+          "response": []
+        },
+        {
+          "name": "[400] Cannot Purchase a Rent Car",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Code is CAR_NOT_FOR_SALE', () => pm.expect(pm.response.json().code).to.equal('CAR_NOT_FOR_SALE'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_id\": \"{{car_id}}\",\n  \"customer_id\": \"{{customer_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/purchases",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "purchases"
+              ]
+            },
+            "description": "car_id is the Toyota Camry, listed as a RENT car. Attempting to purchase it must be rejected with 400 CAR_NOT_FOR_SALE."
           },
           "response": []
         },
@@ -4243,6 +4456,587 @@
         }
       ],
       "description": "Authenticated user's self-service profile endpoints. /profile is mounted with only isAuthenticated middleware — any logged-in user (admin, employee, or client) can view and edit their own row. The user id always comes from req.user (session), never from the request body or URL."
+    },
+    {
+      "name": "18. Listing Type (Sale vs Rent)",
+      "item": [
+        {
+          "name": "Create SALE Car",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('listing_type is sale', () => pm.expect(json.listing_type).to.equal('sale'));",
+                  "if (json.id) { pm.collectionVariables.set('sale_car_id', json.id); console.log('Saved sale_car_id:', json.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"brand\": \"Mazda\",\n  \"model\": \"CX-5\",\n  \"year\": 2023,\n  \"sale_price\": 1200000,\n  \"currency_code\": \"THB\",\n  \"status\": \"available\",\n  \"listing_type\": \"sale\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/cars",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "cars"
+              ]
+            },
+            "description": "A sale-only car. Saves sale_car_id. listing_type defaults to 'sale' even if omitted."
+          },
+          "response": []
+        },
+        {
+          "name": "Create RENT Car",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('listing_type is rent', () => pm.expect(json.listing_type).to.equal('rent'));",
+                  "if (json.id) { pm.collectionVariables.set('rent_car_id', json.id); console.log('Saved rent_car_id:', json.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"brand\": \"Suzuki\",\n  \"model\": \"Swift\",\n  \"year\": 2023,\n  \"rent_price_per_day\": 900,\n  \"currency_code\": \"THB\",\n  \"status\": \"available\",\n  \"listing_type\": \"rent\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/cars",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "cars"
+              ]
+            },
+            "description": "A rent-only car. Saves rent_car_id."
+          },
+          "response": []
+        },
+        {
+          "name": "[400] Cannot Rent a SALE Car",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Code is CAR_NOT_FOR_RENT', () => pm.expect(pm.response.json().code).to.equal('CAR_NOT_FOR_RENT'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_id\": \"{{sale_car_id}}\",\n  \"customer_id\": \"{{customer_id}}\",\n  \"start_date\": \"2026-09-01\",\n  \"end_date\": \"2026-09-03\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/rentals",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "rentals"
+              ]
+            },
+            "description": "Renting a sale-listed car must be rejected with 400 CAR_NOT_FOR_RENT."
+          },
+          "response": []
+        },
+        {
+          "name": "[400] Cannot Purchase a RENT Car",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Code is CAR_NOT_FOR_SALE', () => pm.expect(pm.response.json().code).to.equal('CAR_NOT_FOR_SALE'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_id\": \"{{rent_car_id}}\",\n  \"customer_id\": \"{{customer_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/purchases",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "purchases"
+              ]
+            },
+            "description": "Purchasing a rent-listed car must be rejected with 400 CAR_NOT_FOR_SALE."
+          },
+          "response": []
+        },
+        {
+          "name": "List Cars — Filter by listing_type=rent",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('All cars are rent-listed', () => pm.response.json().cars.forEach(c => pm.expect(c.listing_type).to.equal('rent')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/cars?listing_type=rent&limit=100",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "cars"
+              ],
+              "query": [
+                {
+                  "key": "listing_type",
+                  "value": "rent"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            },
+            "description": "Filter admin car list by listing_type. Accepts 'sale' | 'rent'."
+          },
+          "response": []
+        },
+        {
+          "name": "List Cars — Invalid listing_type (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Code is INVALID_LISTING_TYPE', () => pm.expect(pm.response.json().code).to.equal('INVALID_LISTING_TYPE'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/cars?listing_type=lease",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "cars"
+              ],
+              "query": [
+                {
+                  "key": "listing_type",
+                  "value": "lease"
+                }
+              ]
+            },
+            "description": "An unknown listing_type is rejected with 400 INVALID_LISTING_TYPE."
+          },
+          "response": []
+        }
+      ],
+      "description": "Sale-vs-rent listing model (migration 018). Each car is strictly 'sale' OR 'rent'. The API blocks cross-type transactions: a rent car cannot be purchased (CAR_NOT_FOR_SALE) and a sale car cannot be rented (CAR_NOT_FOR_RENT). The dashboard stats endpoint (GET /admin/cars/stats, folder 4) splits available inventory by listing_type so sale and rental counts never overlap."
+    },
+    {
+      "name": "19. Feedback",
+      "item": [
+        {
+          "name": "Submit Feedback",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Thank-you message returned', () => pm.expect(json.message).to.include('Thank you'));",
+                  "if (json.id) { pm.collectionVariables.set('feedback_id', json.id); console.log('Saved feedback_id:', json.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stars\": 5,\n  \"message\": \"Fantastic service and a smooth handover. Highly recommend!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/feedback",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "feedback"
+              ]
+            },
+            "description": "Public submit — no login required. The body never contains a name: the server stores the logged-in user's full_name, or 'Anonymous' for a guest. Note: if a session cookie from earlier folders is still active, this saves under that account's name. New feedback starts unapproved (hidden from GET /feedback). Saves feedback_id."
+          },
+          "response": []
+        },
+        {
+          "name": "Submit Feedback — Invalid Stars (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Validation error', () => pm.expect(pm.response.json().code).to.equal('VALIDATION_ERROR'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stars\": 6,\n  \"message\": \"Stars out of range\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/feedback",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "feedback"
+              ]
+            },
+            "description": "stars must be an integer 1–5. 6 is rejected with 400 VALIDATION_ERROR."
+          },
+          "response": []
+        },
+        {
+          "name": "Public List — Hidden Until Approved",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Has feedback array and total', () => { pm.expect(json).to.have.property('feedback'); pm.expect(json).to.have.property('total'); });",
+                  "pm.test('Newly submitted item is NOT listed yet', () => { const id = pm.collectionVariables.get('feedback_id'); pm.expect(json.feedback.some(f => f.id === id)).to.be.false; });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/feedback?limit=20&offset=0",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "feedback"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "Public list returns only approved feedback, newest first. The just-submitted (unapproved) item must not appear."
+          },
+          "response": []
+        },
+        {
+          "name": "Admin List — Filter Unapproved",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const list = pm.response.json();",
+                  "pm.test('Returns an array', () => pm.expect(list).to.be.an('array'));",
+                  "pm.test('All are unapproved', () => list.forEach(f => pm.expect(f.is_approved).to.be.false));",
+                  "pm.test('Submitted item is present with a non-empty name', () => { const f = list.find(x => x.id === pm.collectionVariables.get('feedback_id')); pm.expect(f).to.be.an('object'); pm.expect(f.name).to.be.a('string').and.not.empty; });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/feedback?is_approved=false",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "feedback"
+              ],
+              "query": [
+                {
+                  "key": "is_approved",
+                  "value": "false"
+                }
+              ]
+            },
+            "description": "Admin+employee see all feedback including unapproved. The server-derived name (account full_name or 'Anonymous') is visible here."
+          },
+          "response": []
+        },
+        {
+          "name": "Approve Feedback",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Now approved', () => pm.expect(pm.response.json().is_approved).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_approved\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/admin/feedback/{{feedback_id}}/status",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "feedback",
+                "{{feedback_id}}",
+                "status"
+              ]
+            },
+            "description": "Moderation: flip is_approved to true so the feedback appears on the homepage."
+          },
+          "response": []
+        },
+        {
+          "name": "Public List — Shows After Approval",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Approved item now listed', () => { const id = pm.collectionVariables.get('feedback_id'); pm.expect(pm.response.json().feedback.some(f => f.id === id)).to.be.true; });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/feedback",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "feedback"
+              ]
+            },
+            "description": "After approval, the feedback appears in the public list (newest first)."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Feedback",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Deleted message', () => pm.expect(pm.response.json().message).to.include('deleted'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/admin/feedback/{{feedback_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "admin",
+                "feedback",
+                "{{feedback_id}}"
+              ]
+            },
+            "description": "Removes the feedback row. Cleanup for the test run."
+          },
+          "response": []
+        }
+      ],
+      "description": "Homepage customer feedback (migration 019). Public POST /feedback is rate-limited (5/hour/IP) and starts unapproved — hidden from GET /feedback until an admin approves it via PATCH /admin/feedback/:id/status. The display name is server-derived: a logged-in submitter gets their account full_name, a guest gets 'Anonymous' (the request body never carries a name). Admin+employee can list all, approve/hide, and delete — but cannot edit the customer's words. Note: run order matters — the public POST here may reuse a session cookie from earlier folders; that only affects the stored name, not the flow."
     }
   ],
   "event": [

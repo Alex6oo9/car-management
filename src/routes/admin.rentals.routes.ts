@@ -31,6 +31,10 @@ router.post('/', validate(createRentalSchema), async (req: Request, res: Respons
       res.status(400).json({ error: 'Car is in maintenance and cannot be rented', code: 'CAR_MAINTENANCE' });
       return;
     }
+    if (car.listing_type !== 'rent') {
+      res.status(400).json({ error: 'Car is listed for sale, not for rent', code: 'CAR_NOT_FOR_RENT' });
+      return;
+    }
 
     // Validate customer exists
     const customer = await customersRepo.findById(customer_id);

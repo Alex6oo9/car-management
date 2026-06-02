@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { isAuthenticated, isAdminOrEmployee } from '../auth/middleware.js';
 import { validate, validateParams } from '../middleware/validate.js';
-import { createCarSchema, updateCarSchema, publishCarSchema, uuidParamSchema, updateCarImageSchema, carImageParamSchema, carBodyTypeEnum } from '../validation/schemas.js';
+import { createCarSchema, updateCarSchema, publishCarSchema, uuidParamSchema, updateCarImageSchema, carImageParamSchema, carBodyTypeEnum, carStatusEnum, carListingTypeEnum } from '../validation/schemas.js';
 import { carsRepo } from '../db/repositories/cars.repo.js';
 import { getParam } from '../utils/params.js';
 import { upload } from '../middleware/upload.js';
@@ -41,12 +41,42 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
       body_type = parsed.data;
     }
 
+    let status: string | undefined;
+    if (req.query.status !== undefined) {
+      const parsed = carStatusEnum.safeParse(req.query.status);
+      if (!parsed.success) {
+        res.status(400).json({ error: 'Invalid status', code: 'INVALID_STATUS' });
+        return;
+      }
+      status = parsed.data;
+    }
+
+    let listing_type: string | undefined;
+    if (req.query.listing_type !== undefined) {
+      const parsed = carListingTypeEnum.safeParse(req.query.listing_type);
+      if (!parsed.success) {
+        res.status(400).json({ error: 'Invalid listing_type', code: 'INVALID_LISTING_TYPE' });
+        return;
+      }
+      listing_type = parsed.data;
+    }
+
     const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
     const offset = req.query.offset ? parseInt(req.query.offset as string, 10) : undefined;
-    const result = await carsRepo.findAllAdmin({ body_type, limit, offset });
+    const result = await carsRepo.findAllAdmin({ status, listing_type, body_type, limit, offset });
     res.json(result);
   } catch (err) {
     console.error('Error listing cars:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/stats', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const stats = await carsRepo.getDashboardStats();
+    res.json(stats);
+  } catch (err) {
+    console.error('Error getting dashboard stats:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

@@ -88,6 +88,10 @@ export const carBodyTypeEnum = z.enum([
   'convertible',
 ]);
 
+export const carStatusEnum = z.enum(['available', 'reserved', 'rented', 'sold', 'maintenance']);
+
+export const carListingTypeEnum = z.enum(['sale', 'rent']);
+
 export const createCarSchema = z.object({
   vin: z.string().optional(),
   brand: z.string().min(1),
@@ -97,7 +101,7 @@ export const createCarSchema = z.object({
   sale_price: z.number().min(0).optional(),
   rent_price_per_day: z.number().min(0).optional(),
   currency_code: z.string().length(3).default('THB'),
-  status: z.enum(['available', 'reserved', 'rented', 'sold', 'maintenance']).default('available'),
+  status: carStatusEnum.default('available'),
   is_published: z.boolean().default(false),
   fuel: z.enum(['petrol', 'diesel', 'electric', 'hybrid', 'plug-in hybrid']).optional(),
   transmission: z.enum(['automatic', 'manual', 'cvt']).optional(),
@@ -106,6 +110,7 @@ export const createCarSchema = z.object({
   drive: z.enum(['fwd', 'rwd', 'awd', '4wd']).optional(),
   seats: z.number().int().min(1).max(20).optional(),
   body_type: carBodyTypeEnum.optional(),
+  listing_type: carListingTypeEnum.default('sale'),
 });
 
 export const updateCarSchema = z.object({
@@ -117,7 +122,7 @@ export const updateCarSchema = z.object({
   sale_price: z.number().min(0).optional(),
   rent_price_per_day: z.number().min(0).optional(),
   currency_code: z.string().length(3).optional(),
-  status: z.enum(['available', 'reserved', 'rented', 'sold', 'maintenance']).optional(),
+  status: carStatusEnum.optional(),
   is_published: z.boolean().optional(),
   fuel: z.enum(['petrol', 'diesel', 'electric', 'hybrid', 'plug-in hybrid']).optional(),
   transmission: z.enum(['automatic', 'manual', 'cvt']).optional(),
@@ -126,6 +131,7 @@ export const updateCarSchema = z.object({
   drive: z.enum(['fwd', 'rwd', 'awd', '4wd']).optional(),
   seats: z.number().int().min(1).max(20).optional(),
   body_type: carBodyTypeEnum.nullable().optional(),
+  listing_type: carListingTypeEnum.optional(),
 });
 
 export const publishCarSchema = z.object({
@@ -182,6 +188,17 @@ export const updateRentalTermSchema = z.object({
   description: z.string().min(1).optional(),
   is_active: z.boolean().optional(),
   sort_order: z.number().int().min(0).optional(),
+});
+
+// ── Feedback Schemas ──
+
+export const createFeedbackSchema = z.object({
+  stars: z.number().int().min(1).max(5),
+  message: z.string().trim().min(5).max(1000),
+});
+
+export const updateFeedbackStatusSchema = z.object({
+  is_approved: z.boolean(),
 });
 
 // ── Car Document Schemas ──
