@@ -24,6 +24,7 @@ import adminDealerContactRoutes from './routes/admin.dealer-contact.routes.js';
 import publicFeedbackRoutes from './routes/public.feedback.routes.js';
 import adminFeedbackRoutes from './routes/admin.feedback.routes.js';
 import profileRoutes from './routes/profile.routes.js';
+import publicUsersRoutes from './routes/public.users.routes.js';
 
 export function createApp() {
   const app = express();
@@ -52,6 +53,7 @@ export function createApp() {
   app.use('/rental-terms', publicRentalTermsRoutes);
   app.use('/dealer-contact', publicDealerContactRoutes);
   app.use('/feedback', publicFeedbackRoutes);
+  app.use('/users', publicUsersRoutes);
 
   // Auth routes
   app.use('/auth', authRoutes);
