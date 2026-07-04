@@ -21,7 +21,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 
 router.post('/', feedbackRateLimit, validate(createFeedbackSchema), async (req: Request, res: Response): Promise<void> => {
   try {
-    const name = req.user?.full_name ?? 'Anonymous';
+    const name = req.body.name || 'Anonymous';
     const feedback = await feedbackRepo.create({
       stars: req.body.stars,
       message: req.body.message,

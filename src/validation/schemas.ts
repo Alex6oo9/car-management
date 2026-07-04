@@ -193,6 +193,7 @@ export const updateRentalTermSchema = z.object({
 // ── Feedback Schemas ──
 
 export const createFeedbackSchema = z.object({
+  name: z.string().trim().max(100).optional(),
   stars: z.number().int().min(1).max(5),
   message: z.string().trim().min(5).max(1000),
 });
