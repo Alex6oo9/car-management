@@ -29,6 +29,8 @@ import publicUsersRoutes from './routes/public.users.routes.js';
 export function createApp() {
   const app = express();
 
+  app.set('trust proxy', 1);
+
   // Security
   app.use(helmet());
   app.use(cors({
