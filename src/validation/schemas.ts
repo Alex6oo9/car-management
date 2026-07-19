@@ -92,6 +92,11 @@ export const carStatusEnum = z.enum(['available', 'reserved', 'rented', 'sold', 
 
 export const carListingTypeEnum = z.enum(['sale', 'rent']);
 
+const carDriveEnum = z.preprocess(
+  (val) => (typeof val === 'string' ? val.toLowerCase() : val),
+  z.enum(['fwd', 'rwd', 'awd', '4wd'])
+);
+
 export const createCarSchema = z.object({
   vin: z.string().optional(),
   brand: z.string().min(1),
@@ -107,7 +112,7 @@ export const createCarSchema = z.object({
   transmission: z.enum(['automatic', 'manual', 'cvt']).optional(),
   color: z.string().optional(),
   engine: z.string().optional(),
-  drive: z.enum(['fwd', 'rwd', 'awd', '4wd']).optional(),
+  drive: carDriveEnum.optional(),
   seats: z.number().int().min(1).max(20).optional(),
   body_type: carBodyTypeEnum.optional(),
   listing_type: carListingTypeEnum.default('sale'),
@@ -128,7 +133,7 @@ export const updateCarSchema = z.object({
   transmission: z.enum(['automatic', 'manual', 'cvt']).optional(),
   color: z.string().optional(),
   engine: z.string().optional(),
-  drive: z.enum(['fwd', 'rwd', 'awd', '4wd']).optional(),
+  drive: carDriveEnum.optional(),
   seats: z.number().int().min(1).max(20).optional(),
   body_type: carBodyTypeEnum.nullable().optional(),
   listing_type: carListingTypeEnum.optional(),
