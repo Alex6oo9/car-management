@@ -1,0 +1,3971 @@
+{
+  "info": {
+    "_postman_id": "a1e6f8b2-4c3d-4e9a-9f21-7d6b3c8a5e10",
+    "name": "Car Showroom Management System — Production",
+    "description": "Production API test collection for the Car Showroom Management System, targeting the DigitalOcean deployment.\n\n📋 PREREQUISITES\n• Set the `base_url` collection variable (defaults to the production DigitalOcean URL)\n• Enable Postman's cookie jar (on by default in modern Postman Desktop/Web)\n• Admin must already be seeded in production (admin@example.com / admin123, or update `admin_email`/`admin_password` variables)\n\n🔑 SESSION HANDLING\nThis app uses express-session with a PostgreSQL-backed store. There is no bearer token — Postman's built-in cookie jar automatically stores and replays the `connect.sid` session cookie for `{{base_url}}` after any successful login/register. No manual header work needed.\n\n⚡ AUTO-SAVED VARIABLES\nCreate/register requests use request-level Tests scripts to save IDs (and the employee's credentials) as collection variables — car_id, car2_id, customer_id, rental_id, purchase_id, employee_id, rental_term_id, doc_id, image_id, image2_id, feedback_id, client_user_id. No manual copy-pasting needed if you run folders top-to-bottom.\n\n▶️ RUN ORDER\nFolders are ordered in realistic dependency order: Health → Auth → Admin User Mgmt → Customers → Cars (create/publish/images) → Car Documents → Rentals → Purchases → Rental Terms → Dealer Contact → Feedback → Public Endpoints → Cleanup.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "53396085"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://bkk-car-app-f3u5p.ondigitalocean.app",
+      "type": "string"
+    },
+    {
+      "key": "admin_email",
+      "value": "admin@example.com",
+      "type": "string"
+    },
+    {
+      "key": "admin_password",
+      "value": "admin123",
+      "type": "string"
+    },
+    {
+      "key": "employee_email",
+      "value": "employee@example.com",
+      "type": "string"
+    },
+    {
+      "key": "employee_password",
+      "value": "Password123!",
+      "type": "string"
+    },
+    {
+      "key": "client_email",
+      "value": "client_new@example.com",
+      "type": "string"
+    },
+    {
+      "key": "client_password",
+      "value": "Password123!",
+      "type": "string"
+    },
+    {
+      "key": "client_user_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "employee_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "customer_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "car_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "car2_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "image_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "image2_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "rental_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "purchase_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "rental_term_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "doc_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "feedback_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Health Check",
+      "item": [
+        {
+          "name": "Server Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Returns {status: 'ok', timestamp: '...'}. If this fails, the production deployment is not reachable."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Server is up', () => pm.response.to.have.status(200));",
+                  "pm.test('Has ok status', () => pm.expect(pm.response.json().status).to.equal('ok'));"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Verify the production server is reachable before running any other requests."
+    },
+    {
+      "name": "1. Authentication",
+      "item": [
+        {
+          "name": "Register (Client)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{client_email}}\",\n  \"password\": \"{{client_password}}\",\n  \"full_name\": \"Client New\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Self-register as a client. role='client', is_email_verified=false. Triggers a verification email (no-op if RESEND_API_KEY is not set in production)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "if (json.id) { pm.collectionVariables.set('client_user_id', json.id); console.log('Saved client_user_id:', json.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Resend Verification Email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/resend-verification",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "resend-verification"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{client_email}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Resends the verification email for the registered client."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify Email (requires real token from inbox)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/verify-email?token=PASTE_TOKEN_FROM_EMAIL_HERE",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "verify-email"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "PASTE_TOKEN_FROM_EMAIL_HERE"
+                }
+              ]
+            },
+            "description": "Verifies the raw token emailed to the client. Copy the token from the verification email link and paste it into the query param, then run this request before 'Login (Client)' will succeed."
+          },
+          "response": []
+        },
+        {
+          "name": "Login (Client)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{client_email}}\",\n  \"password\": \"{{client_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Returns 403 if email is not yet verified. Session cookie stored automatically by the Postman cookie jar."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Login successful', () => pm.expect(pm.response.json().message).to.equal('Login successful'));",
+                  "pm.test('Role is client', () => pm.expect(pm.response.json().user.role).to.equal('client'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Current User (me) — as Client",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Confirms the client session is active."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('No password in response', () => pm.expect(pm.response.json()).to.not.have.property('password_hash'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Switches the session to admin. All subsequent admin-only folders assume this session is active — run this before folders 2-10."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Login successful', () => pm.expect(pm.response.json().message).to.equal('Login successful'));",
+                  "pm.test('Role is admin', () => pm.expect(pm.response.json().user.role).to.equal('admin'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Current User (me) — as Admin",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Role is admin', () => pm.expect(pm.response.json().role).to.equal('admin'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/forgot-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "forgot-password"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{client_email}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Always responds with the same message regardless of whether the email exists, to prevent enumeration."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reset Password (requires real token from inbox)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/reset-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "reset-password"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"PASTE_TOKEN_FROM_EMAIL_HERE\",\n  \"new_password\": \"NewPassword123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Completes password reset using the raw token emailed to the user. Marks is_email_verified=true and destroys all existing sessions for that user."
+          },
+          "response": []
+        }
+      ],
+      "description": "Register/login flows. IMPORTANT: run 'Login (Admin)' last in this folder so the session used by all subsequent admin folders is the admin session."
+    },
+    {
+      "name": "2. Admin — User Management",
+      "item": [
+        {
+          "name": "Create Employee",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/users",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "users"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{employee_email}}\",\n  \"password\": \"{{employee_password}}\",\n  \"full_name\": \"Jane Employee\",\n  \"role\": \"employee\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Admin only. Creates a new employee user (role must be 'employee' — cannot create another admin via API). Saves employee_id."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Employee created', () => pm.expect(json.role).to.equal('employee'));",
+                  "pm.test('No password in response', () => pm.expect(json).to.not.have.property('password_hash'));",
+                  "if (json.id) { pm.collectionVariables.set('employee_id', json.id); console.log('Saved employee_id:', json.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List All Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/users",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "users"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has users array and total', () => { pm.expect(pm.response.json()).to.have.property('users'); pm.expect(pm.response.json()).to.have.property('total'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Users — Filter by Role",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/users?role=employee",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "role",
+                  "value": "employee"
+                }
+              ]
+            },
+            "description": "Also supports ?is_active=true|false."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('All results are employees', () => { pm.response.json().users.forEach(u => pm.expect(u.role).to.equal('employee')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Employee by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/users/{{employee_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "users",
+                "{{employee_id}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Correct ID', () => pm.expect(pm.response.json().id).to.equal(pm.collectionVariables.get('employee_id')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Employee",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/users/{{employee_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "users",
+                "{{employee_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Jane Employee Updated\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Partial update of full_name and/or is_active."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Name updated', () => pm.expect(pm.response.json().full_name).to.equal('Jane Employee Updated'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Promote Client to Employee",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/users/{{client_user_id}}/role",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "users",
+                "{{client_user_id}}",
+                "role"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"employee\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Promotes the client registered in folder 1 to employee. Uses client_user_id saved at registration."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Role is now employee', () => pm.expect(pm.response.json().role).to.equal('employee'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Demote Employee to Client",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/users/{{client_user_id}}/role/demote",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "users",
+                "{{client_user_id}}",
+                "role",
+                "demote"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Body MUST be an empty object {} (schema is .strict()). Returns 400 if target is not currently an employee, 403 if target is admin."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Role is now client', () => pm.expect(pm.response.json().role).to.equal('client'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[403] Employee Cannot List Users (RBAC)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/users",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "users"
+              ]
+            },
+            "description": "Run 'Login (Client)' with employee_email/employee_password beforehand (or add a dedicated employee login request) to exercise this as a non-admin session. If run right after admin actions, this documents the expected RBAC behavior — admin session will actually get 200, so switch sessions first via the request below."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403 while acting as employee', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login as Employee (switch session)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{employee_email}}\",\n  \"password\": \"{{employee_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Switches session to the employee created above, to exercise RBAC checks below."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Role is employee', () => pm.expect(pm.response.json().user.role).to.equal('employee'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[403] Employee Cannot Create Users",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/users",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "users"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"hacker@example.com\",\n  \"password\": \"Password123!\",\n  \"full_name\": \"Unauthorized\",\n  \"role\": \"employee\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', () => pm.response.to.have.status(403));",
+                  "pm.test('Forbidden error returned', () => pm.expect(pm.response.json()).to.have.property('error'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[200] Employee CAN List Cars",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/cars",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "cars"
+              ]
+            },
+            "description": "Employee has full access to car management (contrast with the users endpoint above)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 - Employee can access cars', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login as Admin (restore session)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "IMPORTANT: restores the admin session for all subsequent folders."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Back to admin', () => pm.expect(pm.response.json().user.role).to.equal('admin'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Employee (soft delete)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/users/{{employee_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "users",
+                "{{employee_id}}"
+              ]
+            },
+            "description": "Sets is_active=false. Kept near the end of this folder since later folders no longer need this employee."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Success message', () => pm.expect(pm.response.json().message).to.include('deleted'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Hard Delete (example — needs a disposable user id)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/users/{{employee_id}}/hard",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "users",
+                "{{employee_id}}",
+                "hard"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"confirm\": \"DELETE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Permanently deletes a user row. Body MUST be exactly { \"confirm\": \"DELETE\" }. Cannot target admin or self. Run against a disposable test user id, not employee_id, in real usage."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 or 404 depending on prior soft-delete', () => pm.expect([200,404]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[403] Cannot Delete Admin Account",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/users/{{employee_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "users",
+                "{{employee_id}}"
+              ]
+            },
+            "description": "Demonstrates the FORBIDDEN guard. To truly test blocking admin deletion, target the admin's own user id (GET /auth/me while logged in as admin) instead — the admin route always rejects role='admin' deletion with 403 FORBIDDEN."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403 or 404 (already deleted)', () => pm.expect([403,404]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Create and manage employee accounts, plus role promotion/demotion and RBAC checks. Admin only (except the deliberate RBAC probes)."
+    },
+    {
+      "name": "3. Customers",
+      "item": [
+        {
+          "name": "Create Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/customers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "customers"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"John Smith\",\n  \"phone\": \"+66123456789\",\n  \"email\": \"john.smith@example.com\",\n  \"address_line\": \"123 Sukhumvit Road\",\n  \"city\": \"Bangkok\",\n  \"country\": \"Thailand\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "At least one of phone or email is required (Zod .refine). Saves customer_id."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Has required fields', () => pm.expect(json).to.have.property('id'));",
+                  "if (json.id) { pm.collectionVariables.set('customer_id', json.id); console.log('Saved customer_id:', json.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List All Customers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/customers?limit=20&offset=0",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "customers"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has customers and total', () => { pm.expect(pm.response.json()).to.have.property('customers'); pm.expect(pm.response.json()).to.have.property('total'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search Customers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/customers?search=John",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "customers"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "John"
+                }
+              ]
+            },
+            "description": "Case-insensitive ILIKE match against name, phone, or email."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Search returns results', () => pm.expect(pm.response.json().customers.length).to.be.greaterThan(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Customer by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/customers/{{customer_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "customers",
+                "{{customer_id}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Correct customer', () => pm.expect(pm.response.json().id).to.equal(pm.collectionVariables.get('customer_id')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Customer",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/customers/{{customer_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "customers",
+                "{{customer_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"city\": \"Chiang Mai\",\n  \"address_line\": \"456 Nimman Road\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Partial update — only provided fields change."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('City updated', () => pm.expect(pm.response.json().city).to.equal('Chiang Mai'));"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Manage customer records. Admin + employee access."
+    },
+    {
+      "name": "4. Cars — Admin",
+      "item": [
+        {
+          "name": "Create Car (Rent Listing)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/cars",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "cars"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vin\": \"JT2BF22K1W0123456\",\n  \"brand\": \"Toyota\",\n  \"model\": \"Camry\",\n  \"year\": 2022,\n  \"mileage_km\": 25000,\n  \"sale_price\": 850000,\n  \"rent_price_per_day\": 2000,\n  \"currency_code\": \"THB\",\n  \"status\": \"available\",\n  \"is_published\": false,\n  \"fuel\": \"petrol\",\n  \"transmission\": \"automatic\",\n  \"color\": \"White\",\n  \"engine\": \"2.5L I4\",\n  \"drive\": \"fwd\",\n  \"seats\": 5,\n  \"body_type\": \"sedan\",\n  \"listing_type\": \"rent\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Creates the main rent-listing test car. VIN is optional but must be unique. Saves car_id."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Car created', () => pm.expect(json.brand).to.equal('Toyota'));",
+                  "if (json.id) { pm.collectionVariables.set('car_id', json.id); console.log('Saved car_id:', json.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Car (Sale Listing)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/cars",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "cars"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vin\": \"1HGBH41JXMN109186\",\n  \"brand\": \"Honda\",\n  \"model\": \"Civic\",\n  \"year\": 2021,\n  \"mileage_km\": 30000,\n  \"sale_price\": 650000,\n  \"rent_price_per_day\": 1500,\n  \"currency_code\": \"THB\",\n  \"status\": \"available\",\n  \"is_published\": false,\n  \"fuel\": \"petrol\",\n  \"transmission\": \"manual\",\n  \"color\": \"Black\",\n  \"engine\": \"1.5L Turbo\",\n  \"drive\": \"fwd\",\n  \"seats\": 5,\n  \"body_type\": \"sedan\",\n  \"listing_type\": \"sale\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Second car, used by the Purchases folder. Saves car2_id."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "if (json.id) { pm.collectionVariables.set('car2_id', json.id); console.log('Saved car2_id:', json.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List All Cars",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/cars?limit=50&offset=0",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "cars"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "Returns all cars regardless of is_published status."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns cars', () => pm.expect(pm.response.json().total).to.be.at.least(2));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Dashboard Stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/cars/stats",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "cars",
+                "stats"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "['available_sale','available_rental','unavailable_sale','unavailable_rental','total_sold','active_rentals'].forEach(k => { pm.test('Has numeric ' + k, () => pm.expect(json[k]).to.be.a('number')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Cars — Filter by Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/cars?status=available&limit=100",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "cars"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "available"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('All cars available', () => json.cars.forEach(c => pm.expect(c.status).to.equal('available')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Cars — Filter by Listing Type",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/cars?listing_type=rent",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "cars"
+              ],
+              "query": [
+                {
+                  "key": "listing_type",
+                  "value": "rent"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('All cars are rent listings', () => json.cars.forEach(c => pm.expect(c.listing_type).to.equal('rent')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[400] List Cars — Invalid Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/cars?status=bogus",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "cars"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "bogus"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code INVALID_STATUS', () => pm.expect(pm.response.json().code).to.equal('INVALID_STATUS'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Car by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/cars/{{car_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "cars",
+                "{{car_id}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has images array', () => pm.expect(pm.response.json()).to.have.property('images'));",
+                  "pm.test('Has documents array', () => pm.expect(pm.response.json()).to.have.property('documents'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Car",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/cars/{{car_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "cars",
+                "{{car_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mileage_km\": 26500,\n  \"sale_price\": 840000,\n  \"rent_price_per_day\": 1900\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Partial update of any car fields."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Mileage updated', () => pm.expect(pm.response.json().mileage_km).to.equal(26500));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Add Primary Image",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/cars/{{car_id}}/images",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "cars",
+                "{{car_id}}",
+                "images"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": [],
+                  "description": "Select an image file (JPEG, PNG, or WebP — max 5 MB)"
+                },
+                {
+                  "key": "is_primary",
+                  "value": "true",
+                  "type": "text",
+                  "description": "Set as the primary/cover image"
+                },
+                {
+                  "key": "sort_order",
+                  "value": "1",
+                  "type": "text",
+                  "description": "Display order (0-based integer)"
+                }
+              ]
+            },
+            "description": "multipart/form-data upload → Cloudinary. Only one primary image per car (enforced by a partial unique index)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Is primary image', () => pm.expect(pm.response.json().is_primary).to.be.true);",
+                  "if (pm.response.json().id) { pm.collectionVariables.set('image_id', pm.response.json().id); console.log('Saved image_id:', pm.response.json().id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Add Secondary Image",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/cars/{{car_id}}/images",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "cars",
+                "{{car_id}}",
+                "images"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": [],
+                  "description": "Select an image file (JPEG, PNG, or WebP — max 5 MB)"
+                },
+                {
+                  "key": "is_primary",
+                  "value": "false",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_order",
+                  "value": "2",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Not primary', () => pm.expect(pm.response.json().is_primary).to.be.false);",
+                  "if (pm.response.json().id) { pm.collectionVariables.set('image2_id', pm.response.json().id); console.log('Saved image2_id:', pm.response.json().id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Image (Promote to Primary)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/cars/{{car_id}}/images/{{image2_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "cars",
+                "{{car_id}}",
+                "images",
+                "{{image2_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_primary\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Promotes the secondary image; the old primary is atomically demoted."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Is now primary', () => pm.expect(pm.response.json().is_primary).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Image",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/cars/{{car_id}}/images/{{image_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "cars",
+                "{{car_id}}",
+                "images",
+                "{{image_id}}"
+              ]
+            },
+            "description": "Deletes from both the DB and Cloudinary."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Success message', () => pm.expect(pm.response.json().message).to.equal('Image deleted successfully'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Publish Car (Rent Listing)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/cars/{{car_id}}/publish",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "cars",
+                "{{car_id}}",
+                "publish"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_published\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "After this, the car appears on GET /cars (public)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Car is published', () => pm.expect(pm.response.json().is_published).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Publish Car (Sale Listing)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/cars/{{car2_id}}/publish",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "cars",
+                "{{car2_id}}",
+                "publish"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_published\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Car is published', () => pm.expect(pm.response.json().is_published).to.be.true);"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Create, update, and publish the car inventory, including image management. Admin + employee access."
+    },
+    {
+      "name": "5. Car Documents",
+      "item": [
+        {
+          "name": "Add Car Document",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/cars/{{car_id}}/documents",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "cars",
+                "{{car_id}}",
+                "documents"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"field_name\": \"Insurance Status\",\n  \"field_value\": \"Valid until Dec 2026\",\n  \"sort_order\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Key-value spec field attached to a car. Saves doc_id."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Document created', () => pm.expect(json.field_name).to.equal('Insurance Status'));",
+                  "if (json.id) { pm.collectionVariables.set('doc_id', json.id); console.log('Saved doc_id:', json.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Add Car Document (Second)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/cars/{{car_id}}/documents",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "cars",
+                "{{car_id}}",
+                "documents"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"field_name\": \"Last Service Date\",\n  \"field_value\": \"2025-11-15\",\n  \"sort_order\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Car Documents",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/cars/{{car_id}}/documents",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "cars",
+                "{{car_id}}",
+                "documents"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Car Document by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/cars/{{car_id}}/documents/{{doc_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "cars",
+                "{{car_id}}",
+                "documents",
+                "{{doc_id}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Correct document', () => pm.expect(pm.response.json().field_name).to.equal('Insurance Status'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Car Document",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/cars/{{car_id}}/documents/{{doc_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "cars",
+                "{{car_id}}",
+                "documents",
+                "{{doc_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"field_value\": \"Valid until Jun 2027\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Value updated', () => pm.expect(pm.response.json().field_value).to.equal('Valid until Jun 2027'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Car Document",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/cars/{{car_id}}/documents/{{doc_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "cars",
+                "{{car_id}}",
+                "documents",
+                "{{doc_id}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Arbitrary key-value spec fields per car (e.g., registration number, insurance expiry). Admin + employee access."
+    },
+    {
+      "name": "6. Rentals",
+      "item": [
+        {
+          "name": "Create Rental",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/rentals",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "rentals"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_id\": \"{{car_id}}\",\n  \"customer_id\": \"{{customer_id}}\",\n  \"start_date\": \"2026-08-01\",\n  \"end_date\": \"2026-08-07\",\n  \"deposit_amount\": 5000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "car_id must be a listing_type=rent car. Checks date overlap, snapshots rent_price_per_day, calculates total (end_date - start_date + 1 days, inclusive)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Status is pending', () => pm.expect(json.status).to.equal('pending'));",
+                  "pm.test('Total price calculated', () => pm.expect(json.total_price).to.be.a('number').and.greaterThan(0));",
+                  "if (json.id) { pm.collectionVariables.set('rental_id', json.id); console.log('Saved rental_id:', json.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[400] Cannot Rent a Sale-Listed Car",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/rentals",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "rentals"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_id\": \"{{car2_id}}\",\n  \"customer_id\": \"{{customer_id}}\",\n  \"start_date\": \"2026-09-01\",\n  \"end_date\": \"2026-09-05\",\n  \"deposit_amount\": 3000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "car2_id is listing_type=sale — renting it must be rejected."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code CAR_NOT_FOR_RENT', () => pm.expect(pm.response.json().code).to.equal('CAR_NOT_FOR_RENT'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[409] Overlapping Rental Blocked",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/rentals",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "rentals"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_id\": \"{{car_id}}\",\n  \"customer_id\": \"{{customer_id}}\",\n  \"start_date\": \"2026-08-05\",\n  \"end_date\": \"2026-08-10\",\n  \"deposit_amount\": 5000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Aug 5–10 overlaps the pending Aug 1–7 rental created above (end_date is inclusive)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('Error code DATE_OVERLAP', () => pm.expect(pm.response.json().code).to.equal('DATE_OVERLAP'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List All Rentals",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/rentals",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "rentals"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has rentals', () => pm.expect(pm.response.json().total).to.be.at.least(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filter Rentals by Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/rentals?status=pending",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "rentals"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "pending"
+                }
+              ]
+            },
+            "description": "Also supports car_id, customer_id, start_date_from, start_date_to."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Rental by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/rentals/{{rental_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "rentals",
+                "{{rental_id}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has car info', () => pm.expect(pm.response.json()).to.have.property('car_brand'));",
+                  "pm.test('Has customer info', () => pm.expect(pm.response.json()).to.have.property('customer_name'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Status → Confirmed",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/rentals/{{rental_id}}/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "rentals",
+                "{{rental_id}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"confirmed\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "pending → confirmed. No side effect on car status."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Status is confirmed', () => pm.expect(pm.response.json().status).to.equal('confirmed'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Status → Active (car becomes rented)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/rentals/{{rental_id}}/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "rentals",
+                "{{rental_id}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "confirmed → active. SIDE EFFECT (atomic transaction): cars.status = 'rented'."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Status is active', () => pm.expect(pm.response.json().status).to.equal('active'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify Car is Now Rented",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/cars/{{car_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "cars",
+                "{{car_id}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Car is rented', () => pm.expect(pm.response.json().status).to.equal('rented'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[400] Invalid Status Transition",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/rentals/{{rental_id}}/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "rentals",
+                "{{rental_id}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"pending\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "active cannot go back to pending."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code STATUS_TRANSITION_ERROR', () => pm.expect(pm.response.json().code).to.equal('STATUS_TRANSITION_ERROR'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Status → Completed (car becomes available)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/rentals/{{rental_id}}/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "rentals",
+                "{{rental_id}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"completed\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "active → completed. SIDE EFFECT: cars.status = 'available' (if no other active rentals)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Status is completed', () => pm.expect(pm.response.json().status).to.equal('completed'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify Car is Available Again",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/cars/{{car_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "cars",
+                "{{car_id}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Car is available', () => pm.expect(pm.response.json().status).to.equal('available'));"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Full rental lifecycle: create → confirmed → active (car becomes rented) → completed (car becomes available again), plus overlap/listing-type validation."
+    },
+    {
+      "name": "7. Purchases",
+      "item": [
+        {
+          "name": "Create Purchase",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/purchases",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "purchases"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_id\": \"{{car2_id}}\",\n  \"customer_id\": \"{{customer_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "car2_id must be listing_type=sale. Snapshots sale_price from the cars table. Saves purchase_id."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Status is pending', () => pm.expect(json.status).to.equal('pending'));",
+                  "pm.test('Sale price snapshotted', () => pm.expect(json.sale_price).to.be.a('number').and.greaterThan(0));",
+                  "if (json.id) { pm.collectionVariables.set('purchase_id', json.id); console.log('Saved purchase_id:', json.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[400] Cannot Purchase a Rent-Listed Car",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/purchases",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "purchases"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_id\": \"{{car_id}}\",\n  \"customer_id\": \"{{customer_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "car_id is listing_type=rent — purchasing it must be rejected."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code CAR_NOT_FOR_SALE', () => pm.expect(pm.response.json().code).to.equal('CAR_NOT_FOR_SALE'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List All Purchases",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/purchases",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "purchases"
+              ]
+            },
+            "description": "Filter with ?car_id=, ?customer_id=, ?status=."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has purchases', () => pm.expect(pm.response.json().total).to.be.at.least(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Purchase by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/purchases/{{purchase_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "purchases",
+                "{{purchase_id}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has car info', () => pm.expect(pm.response.json()).to.have.property('car_brand'));",
+                  "pm.test('Has customer info', () => pm.expect(pm.response.json()).to.have.property('customer_name'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mark as Paid → Car Becomes Sold",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/purchases/{{purchase_id}}/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "purchases",
+                "{{purchase_id}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"paid\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "CRITICAL: uses a DB transaction to atomically set purchase=paid AND car=sold."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Status is paid', () => pm.expect(pm.response.json().status).to.equal('paid'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify Car is Now Sold",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/cars/{{car2_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "cars",
+                "{{car2_id}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Car is sold', () => pm.expect(pm.response.json().status).to.equal('sold'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[400] Cannot Buy an Already-Sold Car",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/purchases",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "purchases"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_id\": \"{{car2_id}}\",\n  \"customer_id\": \"{{customer_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code CAR_NOT_AVAILABLE', () => pm.expect(pm.response.json().code).to.equal('CAR_NOT_AVAILABLE'));"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Purchase lifecycle: create → paid (car becomes sold, atomically), plus listing-type and availability validation."
+    },
+    {
+      "name": "8. Rental Terms — Admin",
+      "item": [
+        {
+          "name": "Create Rental Term",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/rental-terms",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "rental-terms"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Minimum Rental Period\",\n  \"description\": \"All rentals must be for a minimum of 1 day. No hourly rentals are available.\",\n  \"is_active\": true,\n  \"sort_order\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Term created', () => pm.expect(json.title).to.equal('Minimum Rental Period'));",
+                  "if (json.id) { pm.collectionVariables.set('rental_term_id', json.id); console.log('Saved rental_term_id:', json.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Rental Term (Second, Inactive)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/rental-terms",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "rental-terms"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Late Return Policy\",\n  \"description\": \"Vehicles returned after the agreed time are subject to an additional day charge.\",\n  \"is_active\": false,\n  \"sort_order\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List All Rental Terms",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/rental-terms",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "rental-terms"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Active Rental Terms (Admin Filter)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/rental-terms?is_active=true",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "rental-terms"
+              ],
+              "query": [
+                {
+                  "key": "is_active",
+                  "value": "true"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Only active terms', () => json.forEach(t => pm.expect(t.is_active).to.be.true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Rental Term by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/rental-terms/{{rental_term_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "rental-terms",
+                "{{rental_term_id}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Correct term', () => pm.expect(pm.response.json().title).to.equal('Minimum Rental Period'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Rental Term",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/rental-terms/{{rental_term_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "rental-terms",
+                "{{rental_term_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sort_order\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Sort order updated', () => pm.expect(pm.response.json().sort_order).to.equal(10));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Deactivate Rental Term",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/rental-terms/{{rental_term_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "rental-terms",
+                "{{rental_term_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_active\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Term deactivated', () => pm.expect(pm.response.json().is_active).to.be.false);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Rental Term",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/rental-terms/{{rental_term_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "rental-terms",
+                "{{rental_term_id}}"
+              ]
+            },
+            "description": "Hard delete — no soft-delete for this resource."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Full CRUD for rental terms shown on the public site. Admin + employee access."
+    },
+    {
+      "name": "9. Dealer Contact — Admin",
+      "item": [
+        {
+          "name": "Get Dealer Contact",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/dealer-contact",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "dealer-contact"
+              ]
+            },
+            "description": "Single-row table — always returns the one showroom contact record (seeded on migration)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has showroom_name', () => pm.expect(pm.response.json()).to.have.property('showroom_name'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Dealer Contact",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/dealer-contact",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "dealer-contact"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"showroom_name\": \"BKK Kaung Pyae\",\n  \"open_day_from\": \"Monday\",\n  \"open_day_to\": \"Saturday\",\n  \"open_time_from\": \"09:00\",\n  \"open_time_to\": \"18:00\",\n  \"status\": \"auto\",\n  \"phone_number\": \"+66123456789\",\n  \"line_contact\": \"@bkkkaungpyae\",\n  \"facebook_url\": \"https://facebook.com/bkkkaungpyae\",\n  \"instagram_url\": \"https://instagram.com/bkkkaungpyae\",\n  \"gmail\": \"contact@bkkkaungpyae.example.com\",\n  \"viber_contact\": \"+66123456789\",\n  \"wechat_contact\": \"bkkkaungpyae\",\n  \"map_url\": \"https://maps.google.com/?q=BKK+Kaung+Pyae\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Partial update — every field is optional/nullable. status: auto derives open/closed from the day/time fields; open/closed force it."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Showroom name updated', () => pm.expect(pm.response.json().showroom_name).to.equal('BKK Kaung Pyae'));"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Manage the single-row showroom contact/hours record shown on the public site. Admin + employee access."
+    },
+    {
+      "name": "10. Feedback — Admin",
+      "item": [
+        {
+          "name": "List All Feedback",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/feedback",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "feedback"
+              ]
+            },
+            "description": "Run after submitting feedback in folder 11 (Public Endpoints) to see it appear here unapproved."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Feedback — Filter Unapproved",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/feedback?is_approved=false",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "feedback"
+              ],
+              "query": [
+                {
+                  "key": "is_approved",
+                  "value": "false"
+                }
+              ]
+            },
+            "description": "Saves the first unapproved feedback id for the moderation requests below."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('All unapproved', () => json.forEach(f => pm.expect(f.is_approved).to.be.false));",
+                  "if (json.length && json[0].id) { pm.collectionVariables.set('feedback_id', json[0].id); console.log('Saved feedback_id:', json[0].id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Feedback by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/feedback/{{feedback_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "feedback",
+                "{{feedback_id}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Approve Feedback",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/feedback/{{feedback_id}}/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "feedback",
+                "{{feedback_id}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_approved\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Once approved, this feedback becomes visible on the public GET /feedback endpoint."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Now approved', () => pm.expect(pm.response.json().is_approved).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Hide Feedback",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/feedback/{{feedback_id}}/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "feedback",
+                "{{feedback_id}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_approved\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Now hidden', () => pm.expect(pm.response.json().is_approved).to.be.false);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Feedback",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/feedback/{{feedback_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "feedback",
+                "{{feedback_id}}"
+              ]
+            },
+            "description": "Admins moderate only (approve/hide/delete) — they never edit the customer-submitted text."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Moderate homepage testimonial feedback submitted via the public endpoint. Admin + employee access."
+    },
+    {
+      "name": "11. Public Endpoints",
+      "item": [
+        {
+          "name": "List Published Cars",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/cars?limit=20&offset=0",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cars"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "No auth required. Only returns is_published=true cars, each with an images array."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has published cars', () => pm.expect(pm.response.json().total).to.be.at.least(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Published Cars — With Filters",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/cars?brand=Toyota&year_min=2020&year_max=2025&rent_price_min=1000&rent_price_max=3000&body_type=sedan",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cars"
+              ],
+              "query": [
+                {
+                  "key": "brand",
+                  "value": "Toyota"
+                },
+                {
+                  "key": "year_min",
+                  "value": "2020"
+                },
+                {
+                  "key": "year_max",
+                  "value": "2025"
+                },
+                {
+                  "key": "rent_price_min",
+                  "value": "1000"
+                },
+                {
+                  "key": "rent_price_max",
+                  "value": "3000"
+                },
+                {
+                  "key": "body_type",
+                  "value": "sedan"
+                }
+              ]
+            },
+            "description": "Supports brand, model, year_min/max, price_min/max, rent_price_min/max, body_type, limit, offset."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Published Car by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/cars/{{car_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cars",
+                "{{car_id}}"
+              ]
+            },
+            "description": "Includes images and documents arrays."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has images array', () => pm.expect(pm.response.json().images).to.be.an('array'));",
+                  "pm.test('Has documents array', () => pm.expect(pm.response.json().documents).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Active Rental Terms (Public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/rental-terms",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rental-terms"
+              ]
+            },
+            "description": "No auth required. Returns only is_active=true terms ordered by sort_order."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns array', () => pm.expect(pm.response.json()).to.be.an('array'));",
+                  "const json = pm.response.json();",
+                  "pm.test('Only active terms', () => json.forEach(t => pm.expect(t.is_active).to.be.true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Dealer Contact (Public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/dealer-contact",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "dealer-contact"
+              ]
+            },
+            "description": "No auth required. Showroom contact info, hours, and open/closed status."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has showroom_name', () => pm.expect(pm.response.json()).to.have.property('showroom_name'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Approved Feedback (Public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/feedback?limit=10&offset=0",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feedback"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "No auth required. Returns only is_approved=true feedback, newest first."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Submit Feedback (Guest)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/feedback",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feedback"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stars\": 5,\n  \"message\": \"Great service and an excellent selection of cars!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "No auth required, but rate-limited per IP. 'name' is server-derived (session user's full_name if logged in, else 'Anonymous') — the request body cannot set it. Starts is_approved=false (hidden until an admin approves it in folder 10)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Has confirmation message', () => pm.expect(json.message).to.equal('Thank you for your feedback'));",
+                  "if (json.id) { pm.collectionVariables.set('feedback_id', json.id); console.log('Saved feedback_id:', json.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Public Team",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/team",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "team"
+              ]
+            },
+            "description": "No auth required. Returns active employees for a public \"our team\" page."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has users array', () => pm.expect(pm.response.json()).to.have.property('users'));"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "No authentication required. Run after the admin folders above have created/published data, since these read what was created there."
+    },
+    {
+      "name": "12. Cleanup",
+      "item": [
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Logout successful', () => pm.expect(pm.response.json().message).to.equal('Logout successful'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[401] Verify Session Destroyed",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Confirms the session was destroyed by logout."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Run at the very end to close out the admin session."
+    }
+  ]
+}
